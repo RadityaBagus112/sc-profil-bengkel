@@ -1,498 +1,337 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-
+import { onAuthStateChanged } from 'firebase/auth';
 import {
   collection,
-  deleteDoc,
-  doc,
-  getDocs,
+  onSnapshot,
   orderBy,
   query,
-  updateDoc,
+  deleteDoc,
+  doc,
 } from 'firebase/firestore';
 
-import { uploadToCloudinary } from '@/lib/cloudinary';
-
-type MotorData = {
+type Motor = {
   id: string;
-  name?: string;
-  plate?: string;
-  code?: string;
-  wa?: string;
+  name: string;
+  plate: string;
+  code: string;
+  wa: string;
 
-  progress?: number;
-  status?: string;
-  detail?: string;
+  status: string;
+  detail: string;
+  progress: number;
 
   photoBefore?: string;
   photoProcess?: string;
   photoAfter?: string;
+
+  createdAt?: any;
 };
 
 export default function AdminListPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [motors, setMotors] = useState<MotorData[]>([]);
-  const [error, setError] = useState('');
+  const [motors, setMotors] = useState<Motor[]>([]);
 
-  // status upload per motor
-  const [uploading, setUploading] = useState<Record<string, string>>({});
+  // filter
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Semua');
 
-  // =========================
-  // AUTH PROTECTION
-  // =========================
+  // auth protect
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.push('/admin/login');
-      } else {
-        setLoading(false);
-        loadData();
-      }
+      if (!user) router.push('/admin/login');
+      else setLoading(false);
     });
 
     return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
+
+  // realtime motors
+  useEffect(() => {
+    const q = query(collection(db, 'motors'), orderBy('createdAt', 'desc'));
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const data: Motor[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as any),
+        }));
+
+        setMotors(data);
+      },
+      (err) => {
+        console.error('Firestore error:', err);
+      }
+    );
+
+    return () => unsub();
   }, []);
 
-  // =========================
-  // LOAD DATA
-  // =========================
-  const loadData = async () => {
-    setError('');
-    try {
-      const q = query(collection(db, 'motors'), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
+  // list status otomatis (biar dropdown ngikutin isi database)
+  const statusOptions = useMemo(() => {
+    const set = new Set<string>();
+    motors.forEach((m) => {
+      if (m.status?.trim()) set.add(m.status.trim());
+    });
 
-      const data: MotorData[] = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as any),
-      }));
+    return ['Semua', ...Array.from(set)];
+  }, [motors]);
 
-      setMotors(data);
-    } catch (err) {
-      console.error(err);
-      setError('Gagal mengambil data dari Firebase.');
+  const filteredMotors = useMemo(() => {
+    const s = search.trim().toLowerCase();
+
+    return motors.filter((m) => {
+      const matchSearch =
+        !s ||
+        (m.name || '').toLowerCase().includes(s) ||
+        (m.plate || '').toLowerCase().includes(s) ||
+        (m.code || '').toLowerCase().includes(s) ||
+        (m.wa || '').toLowerCase().includes(s) ||
+        (m.status || '').toLowerCase().includes(s);
+
+      const matchStatus =
+        statusFilter === 'Semua' || (m.status || '') === statusFilter;
+
+      return matchSearch && matchStatus;
+    });
+  }, [motors, search, statusFilter]);
+
+  const clampProgress = (val: number) => {
+    if (val < 0) return 0;
+    if (val > 100) return 100;
+    return val;
+  };
+
+  const buildCekLink = (code: string) => {
+    const base = 'https://sc-profil-bengkel-app.vercel.app/cek';
+    return `${base}?code=${encodeURIComponent(code || '')}`;
+  };
+
+  const handleWA = (m: Motor) => {
+    const wa = (m.wa || '').replace(/\s/g, '');
+
+    if (!wa) {
+      alert('Nomor WA kosong.');
+      return;
     }
+
+    const linkCek = buildCekLink(m.code || '');
+
+    const text = `Halo Kak 👋
+Ini update progress motor dari Bagus Restoration.
+
+🛵 Motor: ${m.name || '-'}
+📌 Plat: ${m.plate || '-'}
+🔑 Kode Cek: ${m.code || '-'}
+📍 Status: ${m.status || '-'}
+📈 Progress: ${clampProgress(Number(m.progress) || 0)}%
+🧾 Detail: ${m.detail || '-'}
+
+🔎 Cek progress di sini:
+${linkCek}
+
+Terima kasih 🙏`;
+
+    const url = `https://wa.me/${wa}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
   };
 
-  // =========================
-  // LOGOUT
-  // =========================
-  const handleLogout = async () => {
-    const ok = confirm('Yakin mau logout?');
-    if (!ok) return;
-
-    await signOut(auth);
-    router.push('/admin/login');
-  };
-
-  // =========================
-  // UPDATE FIELD
-  // =========================
-  const updateField = async (id: string, field: string, value: any) => {
-    try {
-      const ref = doc(db, 'motors', id);
-      await updateDoc(ref, {
-        [field]: value,
-      });
-    } catch (err) {
-      console.error(err);
-      alert('Gagal update data.');
-    }
-  };
-
-  const changeProgress = async (id: string, current: number, step: number) => {
-    let next = (current || 0) + step;
-    if (next < 0) next = 0;
-    if (next > 100) next = 100;
-    await updateField(id, 'progress', next);
-    loadData();
-  };
-
-  // =========================
-  // DELETE
-  // =========================
   const handleDelete = async (id: string) => {
     const ok = confirm('Yakin hapus data ini?');
     if (!ok) return;
 
     try {
       await deleteDoc(doc(db, 'motors', id));
-      loadData();
+      alert('Data berhasil dihapus.');
     } catch (err) {
       console.error(err);
       alert('Gagal hapus data.');
     }
   };
 
-  // =========================
-  // UPLOAD FOTO
-  // =========================
-  const handleUploadPhoto = async (
-    motorId: string,
-    type: 'before' | 'process' | 'after',
-    file: File
-  ) => {
-    try {
-      setUploading((prev) => ({
-        ...prev,
-        [motorId]: `Uploading ${type}...`,
-      }));
-
-      const url = await uploadToCloudinary(file);
-
-      const fieldName =
-        type === 'before'
-          ? 'photoBefore'
-          : type === 'process'
-          ? 'photoProcess'
-          : 'photoAfter';
-
-      await updateField(motorId, fieldName, url);
-
-      await loadData();
-    } catch (err: any) {
-      console.error(err);
-      alert('Upload gagal: ' + (err?.message || 'Unknown error'));
-    } finally {
-      setUploading((prev) => {
-        const copy = { ...prev };
-        delete copy[motorId];
-        return copy;
-      });
-    }
-  };
-
-  // =========================
-  // UI
-  // =========================
   if (loading) {
     return (
-      <main
-        style={{
-          padding: 30,
-          fontFamily: 'Arial',
-          background: '#0b0b0b',
-          minHeight: '100vh',
-          color: 'white',
-        }}
-      >
-        <h2>Loading...</h2>
+      <main className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
+        <p className="opacity-80">Loading...</p>
       </main>
     );
   }
 
   return (
-    <main
-      style={{
-        padding: 30,
-        fontFamily: 'Arial',
-        background: '#0b0b0b',
-        minHeight: '100vh',
-        color: 'white',
-      }}
-    >
-      <h1 style={{ fontSize: 28, fontWeight: 'bold' }}>
-        Admin - List Motor Masuk
-      </h1>
-
-      <p style={{ marginTop: 10, marginBottom: 20, opacity: 0.85 }}>
-        Halaman ini untuk update progres motor yang sedang dikerjakan.
-      </p>
-
-      {/* MENU BUTTON */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 10,
-          marginBottom: 20,
-          flexWrap: 'wrap',
-        }}
-      >
-        <button
-          onClick={() => router.push('/admin/add')}
-          style={{
-            padding: '10px 14px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-          }}
-        >
-          ➕ Tambah Motor
-        </button>
-
-        <button
-          onClick={loadData}
-          style={{
-            padding: '10px 14px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-          }}
-        >
-          🔄 Refresh Data
-        </button>
-
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: '10px 14px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-          }}
-        >
-          🚪 Logout
-        </button>
-      </div>
-
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-
-      {motors.length === 0 && (
-        <p style={{ opacity: 0.8 }}>Belum ada motor masuk.</p>
-      )}
-
-      {motors.map((m) => (
-        <div
-          key={m.id}
-          style={{
-            border: '1px solid #333',
-            padding: 18,
-            borderRadius: 14,
-            marginBottom: 20,
-            maxWidth: 980,
-            background: '#111',
-          }}
-        >
-          <h2 style={{ fontSize: 18, fontWeight: 'bold' }}>
-            {m.name || 'Motor'} — {m.plate} ({m.code})
-          </h2>
-
-          <p style={{ marginTop: 8, opacity: 0.9 }}>
-            <b>WA:</b> {m.wa || '-'}
-          </p>
-
-          <p style={{ marginTop: 8 }}>
-            <b>Progress:</b> {m.progress || 0}%
-          </p>
-
-          {/* PROGRESS BUTTON */}
-          <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
-            <button onClick={() => changeProgress(m.id, m.progress || 0, -10)}>
-              -10%
-            </button>
-
-            <button onClick={() => changeProgress(m.id, m.progress || 0, 10)}>
-              +10%
-            </button>
-
-            <button onClick={() => updateField(m.id, 'progress', 100)}>
-              ✅ Selesai (100%)
-            </button>
-          </div>
-
-          {/* FOTO */}
-          <div style={{ marginTop: 22 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 'bold' }}>
-              📸 Foto Before / Process / After
-            </h3>
-
-            {uploading[m.id] && (
-              <p style={{ marginTop: 8, color: 'yellow' }}>
-                {uploading[m.id]}
+    <main className="min-h-screen bg-zinc-950 text-white">
+      {/* HEADER */}
+      <div className="sticky top-0 z-30 bg-zinc-950/90 backdrop-blur border-b border-white/10">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-bold">Admin - List Motor</h1>
+              <p className="text-sm opacity-70">
+                Total: {filteredMotors.length} motor
               </p>
-            )}
+            </div>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: 14,
-                marginTop: 12,
-              }}
-            >
-              {/* BEFORE */}
-              <div
-                style={{
-                  border: '1px solid #222',
-                  padding: 12,
-                  borderRadius: 12,
-                  background: '#0d0d0d',
-                }}
+            <div className="flex gap-2">
+              <button
+                onClick={() => router.push('/admin/add')}
+                className="px-4 py-2 rounded-xl bg-white text-black font-bold hover:opacity-90"
               >
-                <b>Before</b>
+                ➕ Add
+              </button>
 
-                <div style={{ marginTop: 10 }}>
-                  {m.photoBefore ? (
-                    <img
-                      src={m.photoBefore}
-                      alt="Before"
-                      style={{
-                        width: '100%',
-                        height: 160,
-                        objectFit: 'cover',
-                        borderRadius: 10,
-                        border: '1px solid #222',
-                      }}
-                    />
-                  ) : (
-                    <p style={{ opacity: 0.7, marginTop: 10 }}>Belum ada foto</p>
-                  )}
-                </div>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ marginTop: 10, width: '100%' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    handleUploadPhoto(m.id, 'before', file);
-                  }}
-                />
-              </div>
-
-              {/* PROCESS */}
-              <div
-                style={{
-                  border: '1px solid #222',
-                  padding: 12,
-                  borderRadius: 12,
-                  background: '#0d0d0d',
-                }}
+              <button
+                onClick={() => auth.signOut().then(() => router.push('/'))}
+                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold"
               >
-                <b>Process</b>
-
-                <div style={{ marginTop: 10 }}>
-                  {m.photoProcess ? (
-                    <img
-                      src={m.photoProcess}
-                      alt="Process"
-                      style={{
-                        width: '100%',
-                        height: 160,
-                        objectFit: 'cover',
-                        borderRadius: 10,
-                        border: '1px solid #222',
-                      }}
-                    />
-                  ) : (
-                    <p style={{ opacity: 0.7, marginTop: 10 }}>Belum ada foto</p>
-                  )}
-                </div>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ marginTop: 10, width: '100%' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    handleUploadPhoto(m.id, 'process', file);
-                  }}
-                />
-              </div>
-
-              {/* AFTER */}
-              <div
-                style={{
-                  border: '1px solid #222',
-                  padding: 12,
-                  borderRadius: 12,
-                  background: '#0d0d0d',
-                }}
-              >
-                <b>After</b>
-
-                <div style={{ marginTop: 10 }}>
-                  {m.photoAfter ? (
-                    <img
-                      src={m.photoAfter}
-                      alt="After"
-                      style={{
-                        width: '100%',
-                        height: 160,
-                        objectFit: 'cover',
-                        borderRadius: 10,
-                        border: '1px solid #222',
-                      }}
-                    />
-                  ) : (
-                    <p style={{ opacity: 0.7, marginTop: 10 }}>Belum ada foto</p>
-                  )}
-                </div>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ marginTop: 10, width: '100%' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    handleUploadPhoto(m.id, 'after', file);
-                  }}
-                />
-              </div>
+                Logout
+              </button>
             </div>
           </div>
 
-          {/* STATUS */}
-          <div style={{ marginTop: 18 }}>
-            <label style={{ fontWeight: 'bold' }}>Status:</label>
+          {/* FILTER BAR */}
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
             <input
-              defaultValue={m.status || ''}
-              onBlur={(e) => updateField(m.id, 'status', e.target.value)}
-              style={{
-                width: '100%',
-                padding: 10,
-                marginTop: 8,
-                borderRadius: 10,
-              }}
-              placeholder="Contoh: Sedang dikerjakan"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari: nama / plat / kode / WA / status..."
+              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 outline-none focus:border-white/30"
             />
-            <p style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
-              (Auto save setelah klik keluar dari input)
-            </p>
-          </div>
 
-          {/* DETAIL */}
-          <div style={{ marginTop: 18 }}>
-            <label style={{ fontWeight: 'bold' }}>Detail Pengerjaan:</label>
-            <textarea
-              defaultValue={m.detail || ''}
-              onBlur={(e) => updateField(m.id, 'detail', e.target.value)}
-              style={{
-                width: '100%',
-                padding: 10,
-                marginTop: 8,
-                borderRadius: 10,
-                minHeight: 100,
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 outline-none focus:border-white/30"
+            >
+              {statusOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => {
+                setSearch('');
+                setStatusFilter('Semua');
               }}
-              placeholder="Contoh: Ganti kampas rem, service CVT, dll"
-            />
-            <p style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
-              (Auto save setelah klik keluar dari textarea)
-            </p>
+              className="w-full px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold"
+            >
+              Reset Filter
+            </button>
           </div>
-
-          {/* DELETE */}
-          <button
-            onClick={() => handleDelete(m.id)}
-            style={{
-              marginTop: 16,
-              padding: '10px 14px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-            }}
-          >
-            🗑️ Hapus Data
-          </button>
         </div>
-      ))}
+      </div>
+
+      {/* CONTENT */}
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        {filteredMotors.length === 0 ? (
+          <div className="p-6 rounded-2xl bg-zinc-900 border border-white/10">
+            <p className="opacity-80">
+              Belum ada data motor, atau filter kamu tidak menemukan hasil.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredMotors.map((m) => (
+              <div
+                key={m.id}
+                className="p-5 rounded-2xl bg-zinc-900 border border-white/10 shadow-lg"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold">{m.name || '-'}</h2>
+                    <p className="text-sm opacity-80 mt-1">
+                      Plat: <span className="font-semibold">{m.plate}</span>
+                    </p>
+                    <p className="text-sm opacity-80">
+                      Kode: <span className="font-semibold">{m.code}</span>
+                    </p>
+                    <p className="text-sm opacity-80">
+                      WA: <span className="font-semibold">{m.wa}</span>
+                    </p>
+                  </div>
+
+                  <span className="text-xs px-3 py-1 rounded-full bg-white/10 border border-white/10">
+                    {m.status || '-'}
+                  </span>
+                </div>
+
+                {/* Progress */}
+                <div className="mt-4">
+                  <div className="flex justify-between text-sm opacity-80">
+                    <span>Progress</span>
+                    <span className="font-bold">
+                      {clampProgress(Number(m.progress) || 0)}%
+                    </span>
+                  </div>
+
+                  <div className="mt-2 w-full h-3 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-white/70"
+                      style={{
+                        width: `${clampProgress(Number(m.progress) || 0)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Detail */}
+                <div className="mt-4">
+                  <p className="text-sm opacity-80">Detail</p>
+                  <p className="text-sm mt-1 whitespace-pre-wrap">
+                    {m.detail || '-'}
+                  </p>
+                </div>
+
+                {/* Buttons */}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => router.push(`/admin/edit?id=${m.id}`)}
+                    className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold"
+                  >
+                    ✏️ Edit
+                  </button>
+
+                  <button
+                    onClick={() => handleWA(m)}
+                    className="px-4 py-2 rounded-xl bg-white text-black font-bold hover:opacity-90"
+                  >
+                    📲 WA Pelanggan
+                  </button>
+
+                  <button
+                    onClick={() => window.open(buildCekLink(m.code), '_blank')}
+                    className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold"
+                  >
+                    🔎 Link Cek
+                  </button>
+
+                  <button
+                    onClick={() => handleDelete(m.id)}
+                    className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 font-bold"
+                  >
+                    🗑 Hapus
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Floating Add Button (HP) */}
+      <button
+        onClick={() => router.push('/admin/add')}
+        className="md:hidden fixed bottom-5 right-5 px-5 py-4 rounded-2xl bg-white text-black font-extrabold shadow-xl"
+      >
+        ➕ Add
+      </button>
     </main>
   );
 }
