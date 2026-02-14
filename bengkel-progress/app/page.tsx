@@ -249,7 +249,7 @@ export default function HomePage() {
 
             <div className="mt-6 flex flex-wrap gap-3">
               <a
-                href="https://maps.google.com"
+                href="https://maps.app.goo.gl/vpiC942hEnFzx32N6"
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-bold hover:bg-white/10"

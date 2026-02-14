@@ -23,14 +23,12 @@ type MotorData = {
   name?: string;
   plate?: string;
   code?: string;
+  wa?: string;
+
   progress?: number;
   status?: string;
   detail?: string;
 
-  // nomor WA pelanggan (format 62xxxx)
-  phone?: string;
-
-  // foto
   photoBefore?: string;
   photoProcess?: string;
   photoAfter?: string;
@@ -43,12 +41,12 @@ export default function AdminListPage() {
   const [motors, setMotors] = useState<MotorData[]>([]);
   const [error, setError] = useState('');
 
-  // state untuk loading upload per motor
+  // status upload per motor
   const [uploading, setUploading] = useState<Record<string, string>>({});
 
-  // =============================
-  // PROTEKSI HALAMAN ADMIN
-  // =============================
+  // =========================
+  // AUTH PROTECTION
+  // =========================
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (!user) {
@@ -63,9 +61,9 @@ export default function AdminListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // =============================
+  // =========================
   // LOAD DATA
-  // =============================
+  // =========================
   const loadData = async () => {
     setError('');
     try {
@@ -84,9 +82,9 @@ export default function AdminListPage() {
     }
   };
 
-  // =============================
+  // =========================
   // LOGOUT
-  // =============================
+  // =========================
   const handleLogout = async () => {
     const ok = confirm('Yakin mau logout?');
     if (!ok) return;
@@ -95,9 +93,9 @@ export default function AdminListPage() {
     router.push('/admin/login');
   };
 
-  // =============================
+  // =========================
   // UPDATE FIELD
-  // =============================
+  // =========================
   const updateField = async (id: string, field: string, value: any) => {
     try {
       const ref = doc(db, 'motors', id);
@@ -110,37 +108,33 @@ export default function AdminListPage() {
     }
   };
 
-  // =============================
-  // CHANGE PROGRESS
-  // =============================
   const changeProgress = async (id: string, current: number, step: number) => {
     let next = (current || 0) + step;
     if (next < 0) next = 0;
     if (next > 100) next = 100;
-
     await updateField(id, 'progress', next);
-    await loadData();
+    loadData();
   };
 
-  // =============================
+  // =========================
   // DELETE
-  // =============================
+  // =========================
   const handleDelete = async (id: string) => {
     const ok = confirm('Yakin hapus data ini?');
     if (!ok) return;
 
     try {
       await deleteDoc(doc(db, 'motors', id));
-      await loadData();
+      loadData();
     } catch (err) {
       console.error(err);
       alert('Gagal hapus data.');
     }
   };
 
-  // =============================
-  // UPLOAD FOTO (Cloudinary)
-  // =============================
+  // =========================
+  // UPLOAD FOTO
+  // =========================
   const handleUploadPhoto = async (
     motorId: string,
     type: 'before' | 'process' | 'after',
@@ -176,73 +170,63 @@ export default function AdminListPage() {
     }
   };
 
-  // =============================
-  // KIRIM WHATSAPP
-  // =============================
-  const sendWhatsApp = (m: MotorData) => {
-    if (!m.phone) {
-      alert('Nomor WhatsApp pelanggan belum diisi!');
-      return;
-    }
-
-    // Ambil angka saja
-    const phone = m.phone.replace(/\D/g, '');
-
-    if (!phone.startsWith('62')) {
-      alert('Nomor WA harus format 62xxxx (tanpa +).');
-      return;
-    }
-
-    const baseUrl = window.location.origin;
-    const cekLink = `${baseUrl}/cek?code=${m.code || ''}`;
-
-    const msg = `
-Halo kak 👋
-
-Update motor dari Bagus Restoration:
-
-🛵 Motor: ${m.name || '-'}
-📌 Plat: ${m.plate || '-'}
-🔢 Kode: ${m.code || '-'}
-📊 Progress: ${m.progress || 0}%
-📝 Status: ${m.status || '-'}
-
-Silakan cek detail & foto di sini:
-${cekLink}
-
-Terima kasih 🙏
-    `.trim();
-
-    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-    window.open(waUrl, '_blank');
-  };
-
-  // =============================
-  // LOADING
-  // =============================
+  // =========================
+  // UI
+  // =========================
   if (loading) {
     return (
-      <main style={{ padding: 30, fontFamily: 'Arial' }}>
+      <main
+        style={{
+          padding: 30,
+          fontFamily: 'Arial',
+          background: '#0b0b0b',
+          minHeight: '100vh',
+          color: 'white',
+        }}
+      >
         <h2>Loading...</h2>
       </main>
     );
   }
 
-  // =============================
-  // UI
-  // =============================
   return (
-    <main style={{ padding: 30, fontFamily: 'Arial', color: 'white' }}>
+    <main
+      style={{
+        padding: 30,
+        fontFamily: 'Arial',
+        background: '#0b0b0b',
+        minHeight: '100vh',
+        color: 'white',
+      }}
+    >
       <h1 style={{ fontSize: 28, fontWeight: 'bold' }}>
         Admin - List Motor Masuk
       </h1>
 
-      <p style={{ marginTop: 10, marginBottom: 20 }}>
+      <p style={{ marginTop: 10, marginBottom: 20, opacity: 0.85 }}>
         Halaman ini untuk update progres motor yang sedang dikerjakan.
       </p>
 
-      {/* tombol */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+      {/* MENU BUTTON */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          marginBottom: 20,
+          flexWrap: 'wrap',
+        }}
+      >
+        <button
+          onClick={() => router.push('/admin/add')}
+          style={{
+            padding: '10px 14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+          }}
+        >
+          ➕ Tambah Motor
+        </button>
+
         <button
           onClick={loadData}
           style={{
@@ -268,30 +252,36 @@ Terima kasih 🙏
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      {motors.length === 0 && <p>Belum ada motor masuk.</p>}
+      {motors.length === 0 && (
+        <p style={{ opacity: 0.8 }}>Belum ada motor masuk.</p>
+      )}
 
       {motors.map((m) => (
         <div
           key={m.id}
           style={{
-            border: '1px solid #444',
-            padding: 20,
-            borderRadius: 12,
+            border: '1px solid #333',
+            padding: 18,
+            borderRadius: 14,
             marginBottom: 20,
-            maxWidth: 950,
+            maxWidth: 980,
             background: '#111',
           }}
         >
-          <h2 style={{ fontSize: 20, fontWeight: 'bold' }}>
-            {m.name || 'Motor'} — {m.plate || '-'} ({m.code || '-'})
+          <h2 style={{ fontSize: 18, fontWeight: 'bold' }}>
+            {m.name || 'Motor'} — {m.plate} ({m.code})
           </h2>
 
-          <p style={{ marginTop: 10 }}>
+          <p style={{ marginTop: 8, opacity: 0.9 }}>
+            <b>WA:</b> {m.wa || '-'}
+          </p>
+
+          <p style={{ marginTop: 8 }}>
             <b>Progress:</b> {m.progress || 0}%
           </p>
 
-          {/* tombol progress */}
-          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+          {/* PROGRESS BUTTON */}
+          <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
             <button onClick={() => changeProgress(m.id, m.progress || 0, -10)}>
               -10%
             </button>
@@ -305,26 +295,10 @@ Terima kasih 🙏
             </button>
           </div>
 
-          {/* tombol WA */}
-          <button
-            onClick={() => sendWhatsApp(m)}
-            style={{
-              marginTop: 12,
-              padding: '10px 14px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              width: '100%',
-            }}
-          >
-            📲 Kirim Update WhatsApp ke Pelanggan
-          </button>
-
-          {/* =========================
-              FOTO BEFORE/PROCESS/AFTER
-             ========================= */}
-          <div style={{ marginTop: 25 }}>
+          {/* FOTO */}
+          <div style={{ marginTop: 22 }}>
             <h3 style={{ fontSize: 16, fontWeight: 'bold' }}>
-              📸 Upload Foto (Before / Process / After)
+              📸 Foto Before / Process / After
             </h3>
 
             {uploading[m.id] && (
@@ -336,7 +310,7 @@ Terima kasih 🙏
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                 gap: 14,
                 marginTop: 12,
               }}
@@ -344,9 +318,10 @@ Terima kasih 🙏
               {/* BEFORE */}
               <div
                 style={{
-                  border: '1px solid #333',
+                  border: '1px solid #222',
                   padding: 12,
                   borderRadius: 12,
+                  background: '#0d0d0d',
                 }}
               >
                 <b>Before</b>
@@ -365,9 +340,7 @@ Terima kasih 🙏
                       }}
                     />
                   ) : (
-                    <p style={{ opacity: 0.7, marginTop: 10 }}>
-                      Belum ada foto
-                    </p>
+                    <p style={{ opacity: 0.7, marginTop: 10 }}>Belum ada foto</p>
                   )}
                 </div>
 
@@ -386,9 +359,10 @@ Terima kasih 🙏
               {/* PROCESS */}
               <div
                 style={{
-                  border: '1px solid #333',
+                  border: '1px solid #222',
                   padding: 12,
                   borderRadius: 12,
+                  background: '#0d0d0d',
                 }}
               >
                 <b>Process</b>
@@ -407,9 +381,7 @@ Terima kasih 🙏
                       }}
                     />
                   ) : (
-                    <p style={{ opacity: 0.7, marginTop: 10 }}>
-                      Belum ada foto
-                    </p>
+                    <p style={{ opacity: 0.7, marginTop: 10 }}>Belum ada foto</p>
                   )}
                 </div>
 
@@ -428,9 +400,10 @@ Terima kasih 🙏
               {/* AFTER */}
               <div
                 style={{
-                  border: '1px solid #333',
+                  border: '1px solid #222',
                   padding: 12,
                   borderRadius: 12,
+                  background: '#0d0d0d',
                 }}
               >
                 <b>After</b>
@@ -449,9 +422,7 @@ Terima kasih 🙏
                       }}
                     />
                   ) : (
-                    <p style={{ opacity: 0.7, marginTop: 10 }}>
-                      Belum ada foto
-                    </p>
+                    <p style={{ opacity: 0.7, marginTop: 10 }}>Belum ada foto</p>
                   )}
                 </div>
 
@@ -469,27 +440,8 @@ Terima kasih 🙏
             </div>
           </div>
 
-          {/* NOMOR WA */}
-          <div style={{ marginTop: 20 }}>
-            <label style={{ fontWeight: 'bold' }}>No WhatsApp Pelanggan:</label>
-            <input
-              defaultValue={m.phone || ''}
-              onBlur={(e) => updateField(m.id, 'phone', e.target.value)}
-              style={{
-                width: '100%',
-                padding: 10,
-                marginTop: 8,
-                borderRadius: 8,
-              }}
-              placeholder="Contoh: 6281234567890"
-            />
-            <p style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
-              Format: 62xxxx (tanpa +, tanpa spasi)
-            </p>
-          </div>
-
           {/* STATUS */}
-          <div style={{ marginTop: 20 }}>
+          <div style={{ marginTop: 18 }}>
             <label style={{ fontWeight: 'bold' }}>Status:</label>
             <input
               defaultValue={m.status || ''}
@@ -498,7 +450,7 @@ Terima kasih 🙏
                 width: '100%',
                 padding: 10,
                 marginTop: 8,
-                borderRadius: 8,
+                borderRadius: 10,
               }}
               placeholder="Contoh: Sedang dikerjakan"
             />
@@ -508,7 +460,7 @@ Terima kasih 🙏
           </div>
 
           {/* DETAIL */}
-          <div style={{ marginTop: 20 }}>
+          <div style={{ marginTop: 18 }}>
             <label style={{ fontWeight: 'bold' }}>Detail Pengerjaan:</label>
             <textarea
               defaultValue={m.detail || ''}
@@ -517,7 +469,7 @@ Terima kasih 🙏
                 width: '100%',
                 padding: 10,
                 marginTop: 8,
-                borderRadius: 8,
+                borderRadius: 10,
                 minHeight: 100,
               }}
               placeholder="Contoh: Ganti kampas rem, service CVT, dll"
@@ -531,11 +483,10 @@ Terima kasih 🙏
           <button
             onClick={() => handleDelete(m.id)}
             style={{
-              marginTop: 15,
+              marginTop: 16,
               padding: '10px 14px',
               cursor: 'pointer',
               fontWeight: 'bold',
-              width: '100%',
             }}
           >
             🗑️ Hapus Data
