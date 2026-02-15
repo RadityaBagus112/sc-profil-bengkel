@@ -60,22 +60,28 @@ export default function AdminAddPage() {
     try {
       setSaving(true);
 
-      await addDoc(collection(db, 'motors'), {
-        name: name.trim(),
-        plate: plate.trim().toUpperCase(),
-        code: code.trim().toUpperCase(),
-        wa: wa.trim(),
-        detail: detail.trim(),
+      await addDoc(collection(db, "motors"), {
+  // data utama (yang sudah ada)
+  name: name.trim(),
+  plate: plate.trim().toUpperCase(),
+  code: code.trim().toUpperCase(),
+  wa: wa.trim(),
+  detail: detail.trim(),
 
-        progress: 0,
-        status: 'Masuk Bengkel',
+  progress: 0,
+  status: "Masuk Bengkel",
 
-        photoBefore: '',
-        photoProcess: '',
-        photoAfter: '',
+  photoBefore: "",
+  photoProcess: "",
+  photoAfter: "",
 
-        createdAt: serverTimestamp(),
-      });
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+
+  // tambahan supaya halaman progress enak tampil
+  progressText: "Motor sudah masuk bengkel. Menunggu pengecekan.",
+});
+
 
       alert('✅ Data berhasil ditambahkan!');
       router.push('/admin/list');

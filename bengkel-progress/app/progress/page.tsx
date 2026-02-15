@@ -2,47 +2,57 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  collection,
-  getDocs,
-  orderBy,
-  query,
-  Timestamp,
-} from "firebase/firestore";
+import { collection, getDocs, orderBy, query, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 type MotorDoc = {
   id: string;
+
+  // ====== versi lama (yang dulu sempat dipakai) ======
   customerName?: string;
   phone?: string;
   motor?: string;
   platNomor?: string;
   keluhan?: string;
-
-  status?: "menunggu" | "proses" | "selesai";
   progressText?: string;
-
   photoUrl?: string;
+
+  status?: string;
 
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+
+  // ====== versi baru (punyamu sekarang) ======
+  name?: string;
+  plate?: string;
+  code?: string;
+  wa?: string;
+  detail?: string;
+
+  progress?: number;
+
+  photoBefore?: string;
+  photoProcess?: string;
+  photoAfter?: string;
 };
 
 function statusBadge(status?: string) {
   const base =
     "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1";
 
-  if (status === "selesai") {
+  const s = (status || "").toLowerCase();
+
+  // selesai
+  if (s.includes("selesai")) {
     return (
-      <span
-        className={`${base} bg-green-500/10 text-green-300 ring-green-500/20`}
-      >
+      <span className={`${base} bg-green-500/10 text-green-300 ring-green-500/20`}>
         Selesai
       </span>
     );
   }
 
-  if (status === "proses") {
+  // proses
+  if (s.includes("proses") || s.includes("dikerjakan")) {
     return (
       <span
         className={`${base} bg-yellow-500/10 text-yellow-200 ring-yellow-500/20`}
@@ -52,6 +62,7 @@ function statusBadge(status?: string) {
     );
   }
 
+  // menunggu / masuk bengkel
   return (
     <span className={`${base} bg-blue-500/10 text-blue-200 ring-blue-500/20`}>
       Menunggu
@@ -87,8 +98,8 @@ export default function ProgressPage() {
     try {
       setLoading(true);
 
-      // 🔥 DATA ASLI KAMU ADA DI COLLECTION "motors"
-      const q = query(collection(db, "motors"), orderBy("updatedAt", "desc"));
+      // ✅ Pakai createdAt supaya dokumen yang belum punya updatedAt tetap kebaca
+      const q = query(collection(db, "motors"), orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
 
       const list: MotorDoc[] = snap.docs.map((d) => ({
@@ -115,17 +126,42 @@ export default function ProgressPage() {
     return items
       .filter((it) => {
         if (filterStatus === "all") return true;
-        return (it.status || "menunggu") === filterStatus;
+
+        const st = (it.status || "").toLowerCase();
+
+        if (filterStatus === "menunggu") {
+          return (
+            st === "" ||
+            st.includes("menunggu") ||
+            st.includes("masuk bengkel")
+          );
+        }
+
+        if (filterStatus === "proses") {
+          return st.includes("proses") || st.includes("dikerjakan");
+        }
+
+        if (filterStatus === "selesai") {
+          return st.includes("selesai");
+        }
+
+        return true;
       })
       .filter((it) => {
         if (!s) return true;
 
         const hay = [
           it.customerName,
+          it.name,
           it.motor,
+          it.plate,
           it.platNomor,
           it.progressText,
+          it.detail,
           it.keluhan,
+          it.code,
+          it.wa,
+          it.phone,
         ]
           .filter(Boolean)
           .join(" ")
@@ -179,7 +215,7 @@ export default function ProgressPage() {
                 Daftar Progress
               </h1>
               <p className="mt-2 text-white/70">
-                Customer bisa cek status motor, progress terbaru, dan foto bukti.
+                Customer bisa cek status motor, update terbaru, dan foto bukti.
               </p>
             </div>
 
@@ -188,7 +224,7 @@ export default function ProgressPage() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Cari nama / motor / plat..."
+                  placeholder="Cari nama / plat / kode..."
                   className="w-full sm:w-[260px] rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
                 />
 
@@ -227,8 +263,8 @@ export default function ProgressPage() {
                 Data masih kosong / tidak ditemukan.
               </p>
               <p className="mt-2 text-xs text-white/50">
-                Kalau kamu yakin sudah tambah data, berarti field updatedAt belum
-                ada.
+                Kalau kamu yakin sudah tambah data, pastikan kamu menambahnya ke
+                collection <b>motors</b>.
               </p>
             </div>
           )}
@@ -236,50 +272,80 @@ export default function ProgressPage() {
           {/* List */}
           {!loading && filtered.length > 0 && (
             <div className="mt-10 grid gap-4 md:grid-cols-2">
-              {filtered.map((it) => (
-                <Link
-                  key={it.id}
-                  href={`/cek?id=${it.id}`}
-                  className="group rounded-3xl border border-white/10 bg-white/5 p-6 hover:bg-white/10 transition"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold">
-                        {it.motor || "Motor"}
-                        {it.platNomor ? ` • ${it.platNomor}` : ""}
-                      </p>
-                      <p className="mt-1 text-xs text-white/60">
-                        Customer: {it.customerName || "-"}
-                      </p>
+              {filtered.map((it) => {
+                const customer = it.customerName || it.name || "-";
+                const plate = it.platNomor || it.plate || "";
+                const titleMotor = it.motor || "Motor";
+
+                const bestPhoto =
+                  it.photoAfter ||
+                  it.photoProcess ||
+                  it.photoBefore ||
+                  it.photoUrl ||
+                  "";
+
+                const desc =
+                  it.progressText ||
+                  it.detail ||
+                  it.keluhan ||
+                  "Belum ada update progress.";
+
+                // update time: prioritas updatedAt, kalau tidak ada pakai createdAt
+                const time = it.updatedAt || it.createdAt;
+
+                return (
+                  <Link
+                    key={it.id}
+                    href={`/cek?id=${it.id}`}
+                    className="group rounded-3xl border border-white/10 bg-white/5 p-6 hover:bg-white/10 transition"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          {titleMotor}
+                          {plate ? ` • ${plate}` : ""}
+                        </p>
+                        <p className="mt-1 text-xs text-white/60">
+                          Customer: {customer}
+                        </p>
+
+                        {/* Kode */}
+                        {(it.code || "").trim() && (
+                          <p className="mt-1 text-xs text-white/50">
+                            Kode:{" "}
+                            <span className="text-white/70 font-medium">
+                              {it.code}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+
+                      {statusBadge(it.status)}
                     </div>
 
-                    {statusBadge(it.status)}
-                  </div>
+                    <p className="mt-4 text-sm text-white/70 leading-relaxed line-clamp-3">
+                      {desc}
+                    </p>
 
-                  <p className="mt-4 text-sm text-white/70 leading-relaxed line-clamp-3">
-                    {it.progressText ||
-                      it.keluhan ||
-                      "Belum ada update progress."}
-                  </p>
+                    {bestPhoto && (
+                      <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+                        <img
+                          src={bestPhoto}
+                          alt="Foto progress"
+                          className="h-44 w-full object-cover transition group-hover:scale-[1.02]"
+                        />
+                      </div>
+                    )}
 
-                  {it.photoUrl && (
-                    <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-                      <img
-                        src={it.photoUrl}
-                        alt="Foto progress"
-                        className="h-44 w-full object-cover transition group-hover:scale-[1.02]"
-                      />
+                    <div className="mt-5 flex items-center justify-between text-xs text-white/50">
+                      <span>Update: {formatTime(time)}</span>
+                      <span className="text-white/60 group-hover:text-white transition">
+                        Lihat detail →
+                      </span>
                     </div>
-                  )}
-
-                  <div className="mt-5 flex items-center justify-between text-xs text-white/50">
-                    <span>Update: {formatTime(it.updatedAt)}</span>
-                    <span className="text-white/60 group-hover:text-white transition">
-                      Lihat detail →
-                    </span>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
