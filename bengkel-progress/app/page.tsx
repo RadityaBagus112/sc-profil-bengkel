@@ -19,7 +19,7 @@ export default function HomePage() {
               <p className="text-sm font-semibold tracking-tight">
                 Bagus Restoration
               </p>
-              <p className="text-xs text-white/60">Bengkel Motor Profesional</p>
+              <p className="text-xs text-white/60">Bengkel Motor Restorasi</p>
             </div>
           </div>
 
@@ -37,7 +37,7 @@ export default function HomePage() {
 
           <div className="flex items-center gap-2">
             <a
-              href="/admin"
+              href="/admin/login"
               className="rounded-xl bg-white text-black px-4 py-2 text-sm font-semibold hover:bg-white/90 transition"
             >
               Admin
@@ -53,7 +53,7 @@ export default function HomePage() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
                 <span className="h-2 w-2 rounded-full bg-green-400" />
-                Sistem transparan & profesional
+                Sistem transparan & rapi
               </div>
 
               <h1 className="mt-5 text-4xl font-semibold tracking-tight md:text-6xl">
@@ -274,45 +274,97 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section
-        id="kontak"
-        className="relative border-t border-white/10"
-      >
-        <div className="mx-auto max-w-6xl px-4 py-16">
-          <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-white/10 to-white/5 p-8 md:p-12">
-            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              Siap bikin bengkel kamu terlihat profesional?
-            </h2>
-            <p className="mt-3 max-w-2xl text-white/70 leading-relaxed">
-              Mulai sekarang customer tidak cuma percaya dari omongan, tapi dari
-              sistem yang jelas. Progress, status, dan bukti foto.
+{/* CTA / Kontak */}
+<section id="kontak" className="relative border-t border-white/10">
+  <div className="mx-auto max-w-6xl px-4 py-16">
+    <div className="grid gap-6 md:grid-cols-2">
+
+
+      {/* Left CTA */}
+      <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-white/10 to-white/5 p-8 md:p-10">
+        <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          Siap bikin bengkel kamu terlihat profesional?
+        </h2>
+        <p className="mt-3 max-w-xl text-white/70 leading-relaxed">
+          Mulai sekarang customer tidak cuma percaya dari omongan, tapi dari
+          sistem yang jelas. Progress, status, dan bukti foto.
+        </p>
+
+        <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+          <a
+            href="https://wa.me/628xxxxxxxxxx"
+            target="_blank"
+            className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+            rel="noreferrer"
+          >
+            Chat WhatsApp
+          </a>
+
+          <a
+            href="/progress"
+            className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+          >
+            Lihat Progress
+          </a>
+        </div>
+
+        <p className="mt-6 text-xs text-white/50">
+          *Ganti link WhatsApp di kode ini dengan nomor bengkel kamu.
+        </p>
+      </div>
+
+      {/* Right Info Card */}
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-8 md:p-10">
+        <p className="text-sm font-semibold">Alamat Bengkel</p>
+        <p className="mt-3 text-sm leading-relaxed text-white/70">
+          Bagus Restoration <br />
+          Desa Kasegeran Rt 02/Rw 02 Kec.Cilongok Kab.Banyumas <br />
+          Jawa Tengah, Indonesia
+        </p>
+
+        <div className="mt-6 grid gap-3">
+          <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+            <p className="text-xs text-white/50">Jam Buka</p>
+            <p className="mt-1 text-sm font-semibold">
+              Senin – Sabtu (08.00 – 17.00)
             </p>
+            <p className="mt-1 text-xs text-white/60">Minggu: Libur</p>
+          </div>
 
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <a
-                href="https://wa.me/628xxxxxxxxxx"
-                target="_blank"
-                className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
-                rel="noreferrer"
-              >
-                Chat WhatsApp
-              </a>
-
-              <a
-                href="/progress"
-                className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
-              >
-                Lihat Progress
-              </a>
-            </div>
-
-            <p className="mt-6 text-xs text-white/50">
-              *Ganti link WhatsApp di kode ini dengan nomor bengkel kamu.
+          <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+            <p className="text-xs text-white/50">Layanan</p>
+            <p className="mt-1 text-sm text-white/70">
+              Servis ringan • Servis besar • Kelistrikan • CVT • Restoration
             </p>
           </div>
         </div>
-      </section>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <a
+            href="https://maps.app.goo.gl/vpiC942hEnFzx32N6"
+            target="_blank"
+            className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+            rel="noreferrer"
+          >
+            📍Buka di Google Maps
+          </a>
+
+          <a
+            href="tel:+62859126469320"
+            className="inline-flex w-full items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+          >
+            Telepon
+          </a>
+        </div>
+
+        <p className="mt-5 text-xs text-white/50">
+          *Ganti alamat & link maps sesuai lokasi bengkel kamu.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
 
       {/* Footer */}
       <footer className="border-t border-white/10">
@@ -326,7 +378,7 @@ export default function HomePage() {
               <a href="/progress" className="hover:text-white transition">
                 Progress
               </a>
-              <a href="/admin" className="hover:text-white transition">
+              <a href="/admin/login" className="hover:text-white transition">
                 Admin
               </a>
               <a href="#fitur" className="hover:text-white transition">
