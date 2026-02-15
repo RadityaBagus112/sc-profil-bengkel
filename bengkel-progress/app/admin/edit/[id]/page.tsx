@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
-import { auth, db } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import {
@@ -12,6 +12,13 @@ import {
   updateDoc,
   serverTimestamp,
 } from 'firebase/firestore';
+
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from 'firebase/storage';
 
 type Motor = {
   name: string;
@@ -28,42 +35,32 @@ type Motor = {
   photoAfter?: string;
 };
 
-export default function AdminEditPage() {
+export default function EditMotorPage() {
   const router = useRouter();
   const params = useParams();
-
-  const id = useMemo(() => {
-    const raw = params?.id;
-    return typeof raw === 'string' ? raw : '';
-  }, [params]);
+  const id = params?.id as string;
 
   const [loading, setLoading] = useState(true);
-  const [fetching, setFetching] = useState(true);
-
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
 
-  // form state
-  const [name, setName] = useState('');
-  const [plate, setPlate] = useState('');
-  const [code, setCode] = useState('');
-  const [wa, setWa] = useState('');
+  const [notFound, setNotFound] = useState(false);
 
-  const [status, setStatus] = useState('Motor masuk');
-  const [detail, setDetail] = useState('');
-  const [progress, setProgress] = useState<number>(0);
+  const [form, setForm] = useState<Motor>({
+    name: '',
+    plate: '',
+    code: '',
+    wa: '',
+    status: '',
+    detail: '',
+    progress: 0,
+    photoBefore: '',
+    photoProcess: '',
+    photoAfter: '',
+  });
 
-  const [photoBefore, setPhotoBefore] = useState('');
-  const [photoProcess, setPhotoProcess] = useState('');
-  const [photoAfter, setPhotoAfter] = useState('');
-
-  const clampProgress = (val: number) => {
-    if (val < 0) return 0;
-    if (val > 100) return 100;
-    return val;
-  };
-
-  // auth protect
+  // =========================
+  // Auth protect
+  // =========================
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (!user) router.push('/admin/login');
@@ -73,96 +70,212 @@ export default function AdminEditPage() {
     return () => unsub();
   }, [router]);
 
-  // fetch motor
+  // =========================
+  // Fetch data by id
+  // =========================
   useEffect(() => {
     if (!id) return;
 
     const run = async () => {
       try {
-        setFetching(true);
-        setMsg('');
-
-        const ref = doc(db, 'motors', id);
-        const snap = await getDoc(ref);
+        const snap = await getDoc(doc(db, 'motors', id));
 
         if (!snap.exists()) {
-          setMsg('❌ Data tidak ditemukan (doc tidak ada).');
+          setNotFound(true);
           return;
         }
 
-        const data = snap.data() as Motor;
+        const data = snap.data() as any;
 
-        setName(data.name || '');
-        setPlate(data.plate || '');
-        setCode(data.code || '');
-        setWa(data.wa || '');
-
-        setStatus(data.status || 'Motor masuk');
-        setDetail(data.detail || '');
-        setProgress(clampProgress(Number(data.progress) || 0));
-
-        setPhotoBefore(data.photoBefore || '');
-        setPhotoProcess(data.photoProcess || '');
-        setPhotoAfter(data.photoAfter || '');
-      } catch (err: any) {
-        console.error('Fetch error:', err);
-        setMsg('❌ Gagal mengambil data: ' + (err?.message || 'Unknown error'));
-      } finally {
-        setFetching(false);
+        setForm({
+          name: data.name || '',
+          plate: data.plate || '',
+          code: data.code || '',
+          wa: data.wa || '',
+          status: data.status || '',
+          detail: data.detail || '',
+          progress: Number(data.progress || 0),
+          photoBefore: data.photoBefore || '',
+          photoProcess: data.photoProcess || '',
+          photoAfter: data.photoAfter || '',
+        });
+      } catch (err) {
+        console.error(err);
+        setNotFound(true);
       }
     };
 
     run();
   }, [id]);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const clampProgress = (val: number) => {
+    if (val < 0) return 0;
+    if (val > 100) return 100;
+    return val;
+  };
 
-    if (!id) {
-      setMsg('❌ ID kosong. Route error.');
-      return;
-    }
+  const handleChange = (key: keyof Motor, value: any) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
 
-    setMsg('');
+  // =========================
+  // Upload helper
+  // =========================
+  const uploadPhoto = async (
+    file: File,
+    type: 'before' | 'process' | 'after'
+  ) => {
+    if (!id) return '';
 
-    // validasi
-    if (!name.trim()) return setMsg('❌ Nama motor wajib diisi.');
-    if (!plate.trim()) return setMsg('❌ Plat nomor wajib diisi.');
-    if (!code.trim()) return setMsg('❌ Kode cek wajib diisi.');
-    if (!wa.trim()) return setMsg('❌ No WA pelanggan wajib diisi.');
+    const ext = file.name.split('.').pop() || 'jpg';
 
+    // folder storage rapih
+    const fileRef = ref(storage, `motors/${id}/${type}.${ext}`);
+
+    // upload
+    await uploadBytes(fileRef, file);
+
+    // get url
+    const url = await getDownloadURL(fileRef);
+
+    return url;
+  };
+
+  const deletePhotoFromStorage = async (url: string) => {
     try {
-      setSaving(true);
+      if (!url) return;
 
-      const ref = doc(db, 'motors', id);
-
-      await updateDoc(ref, {
-        name: name.trim(),
-        plate: plate.trim().toUpperCase(),
-        code: code.trim().toUpperCase(),
-        wa: wa.trim(),
-
-        status: status.trim(),
-        detail: detail.trim(),
-        progress: clampProgress(Number(progress) || 0),
-
-        photoBefore: photoBefore.trim(),
-        photoProcess: photoProcess.trim(),
-        photoAfter: photoAfter.trim(),
-
-        updatedAt: serverTimestamp(),
-      });
-
-      setMsg('✅ Data berhasil diupdate!');
-      setTimeout(() => router.push('/admin/list'), 700);
-    } catch (err: any) {
-      console.error('Update error:', err);
-      setMsg('❌ Gagal update: ' + (err?.message || 'Unknown error'));
-    } finally {
-      setSaving(false);
+      // Firebase bisa delete pakai ref dari url
+      const fileRef = ref(storage, url);
+      await deleteObject(fileRef);
+    } catch (err) {
+      console.log('Delete storage error:', err);
     }
   };
 
+  // =========================
+  // Handle upload input
+  // =========================
+  const handleUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'before' | 'process' | 'after'
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSaving(true);
+
+    try {
+      // hapus foto lama dulu (kalau ada)
+      const oldUrl =
+        type === 'before'
+          ? form.photoBefore
+          : type === 'process'
+          ? form.photoProcess
+          : form.photoAfter;
+
+      if (oldUrl) {
+        await deletePhotoFromStorage(oldUrl);
+      }
+
+      // upload baru
+      const url = await uploadPhoto(file, type);
+
+      // update state dulu biar preview langsung muncul
+      if (type === 'before') handleChange('photoBefore', url);
+      if (type === 'process') handleChange('photoProcess', url);
+      if (type === 'after') handleChange('photoAfter', url);
+
+      // update firestore
+      await updateDoc(doc(db, 'motors', id), {
+        photoBefore: type === 'before' ? url : form.photoBefore,
+        photoProcess: type === 'process' ? url : form.photoProcess,
+        photoAfter: type === 'after' ? url : form.photoAfter,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Upload gagal. Cek Storage Rules / koneksi.');
+    }
+
+    setSaving(false);
+  };
+
+  // =========================
+  // Delete photo
+  // =========================
+  const handleDeletePhoto = async (type: 'before' | 'process' | 'after') => {
+    const url =
+      type === 'before'
+        ? form.photoBefore
+        : type === 'process'
+        ? form.photoProcess
+        : form.photoAfter;
+
+    if (!url) return;
+
+    const ok = confirm('Yakin hapus foto ini?');
+    if (!ok) return;
+
+    setSaving(true);
+
+    try {
+      await deletePhotoFromStorage(url);
+
+      if (type === 'before') handleChange('photoBefore', '');
+      if (type === 'process') handleChange('photoProcess', '');
+      if (type === 'after') handleChange('photoAfter', '');
+
+      await updateDoc(doc(db, 'motors', id), {
+        photoBefore: type === 'before' ? '' : form.photoBefore,
+        photoProcess: type === 'process' ? '' : form.photoProcess,
+        photoAfter: type === 'after' ? '' : form.photoAfter,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Gagal hapus foto.');
+    }
+
+    setSaving(false);
+  };
+
+  // =========================
+  // Save
+  // =========================
+  const handleSave = async () => {
+    if (!id) return;
+
+    setSaving(true);
+
+    try {
+      await updateDoc(doc(db, 'motors', id), {
+        name: form.name,
+        plate: form.plate,
+        code: form.code,
+        wa: form.wa,
+        status: form.status,
+        detail: form.detail,
+        progress: clampProgress(Number(form.progress || 0)),
+        updatedAt: serverTimestamp(),
+      });
+
+      alert('Data berhasil disimpan!');
+      router.push('/admin/list');
+    } catch (err) {
+      console.error(err);
+      alert('Gagal simpan.');
+    }
+
+    setSaving(false);
+  };
+
+  // =========================
+  // UI
+  // =========================
   if (loading) {
     return (
       <main className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
@@ -171,190 +284,243 @@ export default function AdminEditPage() {
     );
   }
 
-  return (
-    <main className="min-h-screen bg-zinc-950 text-white px-4 py-6">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-extrabold">✏️ Edit Data Motor</h1>
-            <p className="text-sm opacity-70 mt-1">
-              Update status, progress, detail, dan foto.
-            </p>
-          </div>
+  if (notFound) {
+    return (
+      <main className="min-h-screen bg-zinc-950 text-white flex items-center justify-center px-4">
+        <div className="max-w-md w-full p-6 rounded-2xl bg-zinc-900 border border-white/10">
+          <p className="text-lg font-bold">❌ Data tidak ditemukan</p>
+          <p className="text-sm opacity-70 mt-2">
+            ID motor tidak ada di Firestore.
+          </p>
 
           <button
             onClick={() => router.push('/admin/list')}
-            className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold"
+            className="mt-4 w-full px-4 py-3 rounded-xl bg-white text-black font-bold"
           >
-            ⬅️ Back
+            Kembali ke List
           </button>
         </div>
+      </main>
+    );
+  }
 
-        {/* INFO */}
-        <div className="mt-4 p-4 rounded-2xl bg-zinc-900 border border-white/10">
-          <p className="text-xs opacity-70">
-            ID: <span className="font-mono">{id || '-'}</span>
-          </p>
-        </div>
+  return (
+    <main className="min-h-screen bg-zinc-950 text-white px-4 py-6">
+      <div className="max-w-xl mx-auto">
+        <h1 className="text-xl font-bold">✏️ Edit Data Motor</h1>
+        <p className="text-sm opacity-70 mt-1">
+          Update status, progres, detail, dan foto.
+        </p>
 
-        {msg && (
-          <div className="mt-4 p-4 rounded-2xl bg-zinc-900 border border-white/10">
-            <p className="font-bold text-yellow-300">{msg}</p>
-          </div>
-        )}
-
-        {fetching ? (
-          <div className="mt-6 p-6 rounded-2xl bg-zinc-900 border border-white/10">
-            <p className="opacity-80">Mengambil data...</p>
-          </div>
-        ) : (
-          <form
-            onSubmit={handleSave}
-            className="mt-6 p-5 rounded-2xl bg-zinc-900 border border-white/10"
-          >
-            {/* Nama */}
-            <label className="text-sm font-bold">Nama Motor</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
-              placeholder="Contoh: Honda Vario 125"
-            />
-
-            {/* Plat */}
-            <div className="mt-4">
-              <label className="text-sm font-bold">Plat Nomor</label>
+        {/* FORM */}
+        <div className="mt-5 p-5 rounded-2xl bg-zinc-900 border border-white/10">
+          <div className="grid gap-4">
+            <div>
+              <p className="text-sm font-semibold mb-2">Nama Motor</p>
               <input
-                value={plate}
-                onChange={(e) => setPlate(e.target.value)}
-                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
-                placeholder="Contoh: R 1234 ABC"
+                value={form.name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
               />
             </div>
 
-            {/* Code */}
-            <div className="mt-4">
-              <label className="text-sm font-bold">Kode Cek</label>
+            <div>
+              <p className="text-sm font-semibold mb-2">Plat Nomor</p>
               <input
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
-                placeholder="Contoh: X9A21B"
+                value={form.plate}
+                onChange={(e) => handleChange('plate', e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
               />
             </div>
 
-            {/* WA */}
-            <div className="mt-4">
-              <label className="text-sm font-bold">No WA Pelanggan</label>
+            <div>
+              <p className="text-sm font-semibold mb-2">Kode Cek</p>
               <input
-                value={wa}
-                onChange={(e) => setWa(e.target.value)}
-                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
-                placeholder="Contoh: 6281234567890"
-              />
-              <p className="text-xs opacity-60 mt-2">
-                Wajib format 62xxxx (tanpa +)
-              </p>
-            </div>
-
-            {/* Status */}
-            <div className="mt-4">
-              <label className="text-sm font-bold">Status</label>
-              <input
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
-                placeholder="Contoh: Motor masuk"
+                value={form.code}
+                onChange={(e) => handleChange('code', e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
               />
             </div>
 
-            {/* Detail */}
-            <div className="mt-4">
-              <label className="text-sm font-bold">Detail</label>
+            <div>
+              <p className="text-sm font-semibold mb-2">No WA Pelanggan</p>
+              <input
+                value={form.wa}
+                onChange={(e) => handleChange('wa', e.target.value)}
+                placeholder="628xxxx"
+                className="w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+              />
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold mb-2">Status</p>
+              <input
+                value={form.status}
+                onChange={(e) => handleChange('status', e.target.value)}
+                placeholder="Contoh: Proses / Antri / Selesai"
+                className="w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+              />
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold mb-2">Detail</p>
               <textarea
-                value={detail}
-                onChange={(e) => setDetail(e.target.value)}
-                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30 min-h-[120px]"
-                placeholder="Contoh: Service CVT, ganti kampas rem..."
+                value={form.detail}
+                onChange={(e) => handleChange('detail', e.target.value)}
+                rows={4}
+                className="w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
               />
             </div>
 
-            {/* Progress */}
-            <div className="mt-4">
-              <label className="text-sm font-bold">Progress (%)</label>
+            <div>
+              <p className="text-sm font-semibold mb-2">Progress (%)</p>
               <input
                 type="number"
-                value={progress}
+                value={form.progress}
                 onChange={(e) =>
-                  setProgress(clampProgress(Number(e.target.value)))
+                  handleChange('progress', clampProgress(Number(e.target.value)))
                 }
-                min={0}
-                max={100}
-                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+                className="w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
               />
             </div>
 
-            {/* Foto URL */}
-            <div className="mt-6">
-              <p className="font-bold text-sm">📸 Foto (URL)</p>
-              <p className="text-xs opacity-60 mt-1">
-                Untuk sekarang pakai link foto dulu. Upload Firebase Storage kita
-                bikin setelah ini.
+            {/* FOTO */}
+            <div className="mt-2">
+              <p className="text-sm font-semibold mb-3">
+                🖼 Foto (Before / Process / After)
               </p>
 
-              <div className="mt-4 grid grid-cols-1 gap-4">
-                <div>
-                  <label className="text-sm font-bold opacity-80">Before</label>
-                  <input
-                    value={photoBefore}
-                    onChange={(e) => setPhotoBefore(e.target.value)}
-                    className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
-                    placeholder="https://..."
-                  />
-                </div>
+              {/* BEFORE */}
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-white/10 mb-3">
+                <p className="font-bold text-sm mb-2">Before</p>
 
-                <div>
-                  <label className="text-sm font-bold opacity-80">Process</label>
-                  <input
-                    value={photoProcess}
-                    onChange={(e) => setPhotoProcess(e.target.value)}
-                    className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
-                    placeholder="https://..."
-                  />
-                </div>
+                {form.photoBefore ? (
+                  <div>
+                    <img
+                      src={form.photoBefore}
+                      alt="Before"
+                      className="w-full rounded-xl border border-white/10"
+                    />
 
-                <div>
-                  <label className="text-sm font-bold opacity-80">After</label>
+                    <button
+                      onClick={() => handleDeletePhoto('before')}
+                      className="mt-3 w-full px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 font-bold"
+                    >
+                      Hapus Foto
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm opacity-70">Belum ada foto</p>
+                )}
+
+                <label className="mt-3 block">
                   <input
-                    value={photoAfter}
-                    onChange={(e) => setPhotoAfter(e.target.value)}
-                    className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
-                    placeholder="https://..."
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleUpload(e, 'before')}
+                    className="hidden"
                   />
-                </div>
+
+                  <div className="cursor-pointer mt-2 w-full px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold text-center">
+                    {saving ? 'Uploading...' : 'Pilih Foto'}
+                  </div>
+                </label>
+              </div>
+
+              {/* PROCESS */}
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-white/10 mb-3">
+                <p className="font-bold text-sm mb-2">Process</p>
+
+                {form.photoProcess ? (
+                  <div>
+                    <img
+                      src={form.photoProcess}
+                      alt="Process"
+                      className="w-full rounded-xl border border-white/10"
+                    />
+
+                    <button
+                      onClick={() => handleDeletePhoto('process')}
+                      className="mt-3 w-full px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 font-bold"
+                    >
+                      Hapus Foto
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm opacity-70">Belum ada foto</p>
+                )}
+
+                <label className="mt-3 block">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleUpload(e, 'process')}
+                    className="hidden"
+                  />
+
+                  <div className="cursor-pointer mt-2 w-full px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold text-center">
+                    {saving ? 'Uploading...' : 'Pilih Foto'}
+                  </div>
+                </label>
+              </div>
+
+              {/* AFTER */}
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-white/10">
+                <p className="font-bold text-sm mb-2">After</p>
+
+                {form.photoAfter ? (
+                  <div>
+                    <img
+                      src={form.photoAfter}
+                      alt="After"
+                      className="w-full rounded-xl border border-white/10"
+                    />
+
+                    <button
+                      onClick={() => handleDeletePhoto('after')}
+                      className="mt-3 w-full px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 font-bold"
+                    >
+                      Hapus Foto
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm opacity-70">Belum ada foto</p>
+                )}
+
+                <label className="mt-3 block">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleUpload(e, 'after')}
+                    className="hidden"
+                  />
+
+                  <div className="cursor-pointer mt-2 w-full px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold text-center">
+                    {saving ? 'Uploading...' : 'Pilih Foto'}
+                  </div>
+                </label>
               </div>
             </div>
 
-            {/* Buttons */}
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            {/* BUTTONS */}
+            <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
               <button
-                type="submit"
-                disabled={saving}
-                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-white text-black font-extrabold hover:opacity-90 disabled:opacity-60"
+                onClick={() => router.push('/admin/list')}
+                className="px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold"
               >
-                {saving ? 'Menyimpan...' : '💾 Simpan Update'}
+                ⬅️ Kembali
               </button>
 
               <button
-                type="button"
-                onClick={() => router.push('/admin/list')}
-                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold"
+                onClick={handleSave}
+                disabled={saving}
+                className="px-4 py-3 rounded-xl bg-white text-black font-bold hover:opacity-90 disabled:opacity-50"
               >
-                📋 Kembali ke List
+                {saving ? 'Menyimpan...' : '💾 Simpan Perubahan'}
               </button>
             </div>
-          </form>
-        )}
+          </div>
+        </div>
       </div>
     </main>
   );
