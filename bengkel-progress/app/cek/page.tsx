@@ -1,342 +1,404 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
-type MotorData = {
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  Timestamp,
+} from "firebase/firestore";
+
+type MotorDoc = {
+  id: string;
+
   name?: string;
   plate?: string;
   code?: string;
-  progress?: number;
+  wa?: string;
+
   status?: string;
   detail?: string;
+  progress?: number;
 
   photoBefore?: string;
   photoProcess?: string;
   photoAfter?: string;
+
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 };
 
+function clampProgress(val: number) {
+  if (val < 0) return 0;
+  if (val > 100) return 100;
+  return val;
+}
+
+function formatTime(ts?: Timestamp) {
+  if (!ts) return "-";
+  try {
+    const d = ts.toDate();
+    return d.toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "-";
+  }
+}
+
+function statusBadge(status?: string) {
+  const base =
+    "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1";
+
+  const s = (status || "").toLowerCase();
+
+  if (s.includes("selesai")) {
+    return (
+      <span className={`${base} bg-green-500/10 text-green-300 ring-green-500/20`}>
+        Selesai
+      </span>
+    );
+  }
+
+  if (s.includes("proses") || s.includes("dikerjakan")) {
+    return (
+      <span className={`${base} bg-yellow-500/10 text-yellow-200 ring-yellow-500/20`}>
+        Proses
+      </span>
+    );
+  }
+
+  if (s.includes("menunggu")) {
+    return (
+      <span className={`${base} bg-blue-500/10 text-blue-200 ring-blue-500/20`}>
+        Menunggu
+      </span>
+    );
+  }
+
+  return (
+    <span className={`${base} bg-white/10 text-white/80 ring-white/15`}>
+      {status || "Status"}
+    </span>
+  );
+}
+
+function PhotoCard({
+  title,
+  url,
+}: {
+  title: string;
+  url?: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+        <p className="text-sm font-semibold">{title}</p>
+        <span className="text-xs text-white/50">Foto</span>
+      </div>
+
+      {!url ? (
+        <div className="p-6">
+          <p className="text-sm text-white/60">
+            Belum ada foto.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-black/30">
+          <img
+            src={url}
+            alt={title}
+            className="h-[240px] w-full object-cover"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CekPage() {
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<MotorData | null>(null);
-  const [error, setError] = useState('');
+  const params = useSearchParams();
 
-  // auto isi code dari URL (?code=XXXX)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const c = params.get('code');
-    if (c) setCode(c.toUpperCase());
-  }, []);
+  const code = useMemo(() => {
+    const c = (params.get("code") || "").trim().toUpperCase();
+    return c;
+  }, [params]);
 
-  const handleSearch = async () => {
-    setLoading(true);
-    setError('');
-    setResult(null);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<MotorDoc | null>(null);
+  const [msg, setMsg] = useState("");
+
+  async function loadByCode() {
+    setMsg("");
+    setData(null);
+
+    if (!code) {
+      setLoading(false);
+      setMsg("Kode cek tidak ditemukan di URL. Contoh: /cek?code=ABC123");
+      return;
+    }
 
     try {
-      const q = query(
-        collection(db, 'motors'),
-        where('code', '==', code.toUpperCase().trim())
-      );
+      setLoading(true);
 
+      // Cari motor berdasarkan code
+      const q = query(collection(db, "motors"), where("code", "==", code));
       const snap = await getDocs(q);
 
       if (snap.empty) {
-        setError('Data tidak ditemukan. Cek kode unik yang kamu masukkan.');
-      } else {
-        setResult(snap.docs[0].data() as MotorData);
+        setData(null);
+        setMsg("Data tidak ditemukan. Pastikan kode cek benar.");
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      setError('Terjadi error saat mengambil data.');
+
+      const doc = snap.docs[0];
+      setData({
+        id: doc.id,
+        ...(doc.data() as any),
+      });
+    } catch (err: any) {
+      console.error("Load cek error:", err);
+      setMsg("Terjadi error saat memuat data.");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    setLoading(false);
-  };
-
-  const progress = result?.progress || 0;
+  useEffect(() => {
+    loadByCode();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        background: '#0b0b0b',
-        color: 'white',
-        padding: 24,
-        fontFamily: 'Arial',
-      }}
-    >
-      {/* HEADER */}
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 'bold' }}>
-          🔧 Cek Progres Motor
-        </h1>
-        <p style={{ opacity: 0.8, marginTop: 8 }}>
-          Masukkan kode unik yang diberikan admin bengkel untuk melihat progres,
-          detail pengerjaan, dan foto.
-        </p>
-
-        {/* SEARCH BOX */}
-        <div
-          style={{
-            marginTop: 20,
-            padding: 16,
-            borderRadius: 14,
-            background: '#121212',
-            border: '1px solid #222',
-            display: 'flex',
-            gap: 10,
-            flexWrap: 'wrap',
-          }}
-        >
-          <input
-            placeholder="Masukkan Kode Unik (contoh: A1B2)"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            style={{
-              padding: 12,
-              borderRadius: 10,
-              border: '1px solid #333',
-              outline: 'none',
-              flex: 1,
-              minWidth: 220,
-              background: '#0f0f0f',
-              color: 'white',
-            }}
-          />
-
-          <button
-            onClick={handleSearch}
-            disabled={loading || !code.trim()}
-            style={{
-              padding: '12px 16px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontWeight: 'bold',
-              borderRadius: 10,
-              border: '1px solid #333',
-              background: loading ? '#222' : '#1f6feb',
-              color: 'white',
-              minWidth: 120,
-            }}
-          >
-            {loading ? 'Loading...' : 'Cek'}
-          </button>
-        </div>
-
-        {/* ERROR */}
-        {error && (
-          <div
-            style={{
-              marginTop: 18,
-              padding: 14,
-              borderRadius: 12,
-              background: '#2a0f0f',
-              border: '1px solid #4d1a1a',
-              color: '#ffb4b4',
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        {/* RESULT */}
-        {result && (
-          <div
-            style={{
-              marginTop: 22,
-              padding: 20,
-              borderRadius: 16,
-              background: '#121212',
-              border: '1px solid #222',
-            }}
-          >
-            {/* TOP INFO */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 'bold' }}>
-                {result.name || 'Motor'}{' '}
-                <span style={{ opacity: 0.7, fontSize: 14 }}>
-                  ({result.plate || '-'})
-                </span>
-              </h2>
-
-              <p style={{ opacity: 0.85 }}>
-                <b>Kode:</b> {result.code || '-'}
-              </p>
-
-              <p style={{ opacity: 0.85 }}>
-                <b>Status:</b> {result.status || '-'}
-              </p>
-            </div>
-
-            {/* PROGRESS */}
-            <div style={{ marginTop: 18 }}>
-              <p style={{ fontWeight: 'bold', marginBottom: 8 }}>
-                Progress: {progress}%
-              </p>
-
-              <div
-                style={{
-                  width: '100%',
-                  height: 14,
-                  borderRadius: 999,
-                  background: '#1b1b1b',
-                  border: '1px solid #2a2a2a',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    width: `${progress}%`,
-                    height: '100%',
-                    background: progress >= 100 ? '#22c55e' : '#1f6feb',
-                    transition: '0.3s',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* DETAIL */}
-            <div style={{ marginTop: 18 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 'bold' }}>
-                📝 Detail Pengerjaan
-              </h3>
-
-              <div
-                style={{
-                  marginTop: 10,
-                  padding: 14,
-                  borderRadius: 12,
-                  background: '#0f0f0f',
-                  border: '1px solid #222',
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: 1.6,
-                  opacity: 0.9,
-                }}
-              >
-                {result.detail || 'Belum ada detail pengerjaan.'}
-              </div>
-            </div>
-
-            {/* FOTO */}
-            <div style={{ marginTop: 22 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 'bold' }}>
-                📸 Foto Pengerjaan
-              </h3>
-
-              <div
-                style={{
-                  marginTop: 12,
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: 14,
-                }}
-              >
-                {/* BEFORE */}
-                <div
-                  style={{
-                    borderRadius: 14,
-                    border: '1px solid #222',
-                    background: '#0f0f0f',
-                    padding: 12,
-                  }}
-                >
-                  <b>Before</b>
-                  <div style={{ marginTop: 10 }}>
-                    {result.photoBefore ? (
-                      <img
-                        src={result.photoBefore}
-                        alt="Before"
-                        style={{
-                          width: '100%',
-                          height: 180,
-                          objectFit: 'cover',
-                          borderRadius: 12,
-                          border: '1px solid #222',
-                        }}
-                      />
-                    ) : (
-                      <p style={{ opacity: 0.6 }}>Belum ada foto</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* PROCESS */}
-                <div
-                  style={{
-                    borderRadius: 14,
-                    border: '1px solid #222',
-                    background: '#0f0f0f',
-                    padding: 12,
-                  }}
-                >
-                  <b>Process</b>
-                  <div style={{ marginTop: 10 }}>
-                    {result.photoProcess ? (
-                      <img
-                        src={result.photoProcess}
-                        alt="Process"
-                        style={{
-                          width: '100%',
-                          height: 180,
-                          objectFit: 'cover',
-                          borderRadius: 12,
-                          border: '1px solid #222',
-                        }}
-                      />
-                    ) : (
-                      <p style={{ opacity: 0.6 }}>Belum ada foto</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* AFTER */}
-                <div
-                  style={{
-                    borderRadius: 14,
-                    border: '1px solid #222',
-                    background: '#0f0f0f',
-                    padding: 12,
-                  }}
-                >
-                  <b>After</b>
-                  <div style={{ marginTop: 10 }}>
-                    {result.photoAfter ? (
-                      <img
-                        src={result.photoAfter}
-                        alt="After"
-                        style={{
-                          width: '100%',
-                          height: 180,
-                          objectFit: 'cover',
-                          borderRadius: 12,
-                          border: '1px solid #222',
-                        }}
-                      />
-                    ) : (
-                      <p style={{ opacity: 0.6 }}>Belum ada foto</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* FOOTER */}
-            <div
-              style={{
-                marginTop: 24,
-                paddingTop: 14,
-                borderTop: '1px solid #222',
-                opacity: 0.7,
-                fontSize: 13,
-              }}
-            >
-              Jika ada pertanyaan, silakan hubungi admin bengkel.
-            </div>
-          </div>
-        )}
+    <main className="min-h-screen bg-black text-white">
+      {/* Background */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute left-1/2 top-[-220px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute left-[10%] top-[35%] h-[420px] w-[420px] rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="absolute right-[10%] top-[55%] h-[420px] w-[420px] rounded-full bg-purple-500/10 blur-3xl" />
       </div>
+
+      {/* Navbar */}
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/40 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-2xl bg-white/10 ring-1 ring-white/10 flex items-center justify-center">
+              <span className="text-sm font-semibold">BR</span>
+            </div>
+            <div className="leading-tight">
+              <p className="text-sm font-semibold tracking-tight">
+                Bagus Restoration
+              </p>
+              <p className="text-xs text-white/60">Cek Progress</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/"
+              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
+            >
+              Home
+            </Link>
+
+            <button
+              onClick={loadByCode}
+              className="rounded-xl bg-white text-black px-4 py-2 text-sm font-semibold hover:bg-white/90 transition"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Content */}
+      <section className="relative">
+        <div className="mx-auto max-w-6xl px-4 pt-10 pb-16">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
+                Detail Progress
+              </h1>
+              <p className="mt-2 text-white/70">
+                Masukkan kode cek dari bengkel untuk melihat progress motor.
+              </p>
+            </div>
+
+            <div className="mt-4 md:mt-0">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs text-white/60">Kode Cek</p>
+                <p className="text-sm font-bold tracking-wider">{code || "-"}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-8">
+              <p className="text-sm text-white/70">Memuat data...</p>
+            </div>
+          )}
+
+          {/* Error / Empty */}
+          {!loading && !data && (
+            <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-8">
+              <p className="text-sm text-white/70">{msg || "Data kosong."}</p>
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/progress"
+                  className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition text-center"
+                >
+                  Kembali ke Progress
+                </Link>
+
+                <Link
+                  href="/"
+                  className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition text-center"
+                >
+                  Ke Home
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Data */}
+          {!loading && data && (
+            <div className="mt-10 grid gap-6 lg:grid-cols-3">
+              {/* LEFT: Detail */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl font-bold">
+                        {data.name || "Motor"}
+                      </h2>
+                      <p className="mt-1 text-sm text-white/70">
+                        Plat:{" "}
+                        <span className="font-semibold text-white">
+                          {data.plate || "-"}
+                        </span>
+                      </p>
+                    </div>
+
+                    {statusBadge(data.status)}
+                  </div>
+
+                  {/* Progress */}
+                  <div className="mt-6">
+                    <div className="flex justify-between text-sm text-white/70">
+                      <span>Progress</span>
+                      <span className="font-bold text-white">
+                        {clampProgress(Number(data.progress) || 0)}%
+                      </span>
+                    </div>
+
+                    <div className="mt-3 w-full h-3 rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full bg-white/80"
+                        style={{
+                          width: `${clampProgress(Number(data.progress) || 0)}%`,
+                        }}
+                      />
+                    </div>
+
+                    <p className="mt-3 text-xs text-white/50">
+                      Update terakhir:{" "}
+                      {formatTime(data.updatedAt || data.createdAt)}
+                    </p>
+                  </div>
+
+                  {/* Detail */}
+                  <div className="mt-6">
+                    <p className="text-sm font-semibold">Detail Pengerjaan</p>
+                    <p className="mt-2 text-sm text-white/70 whitespace-pre-wrap leading-relaxed">
+                      {data.detail || "Belum ada detail pengerjaan."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Photos */}
+                <div className="grid gap-4 md:grid-cols-3">
+                  <PhotoCard title="Foto Sebelum" url={data.photoBefore} />
+                  <PhotoCard title="Foto Proses" url={data.photoProcess} />
+                  <PhotoCard title="Foto Setelah" url={data.photoAfter} />
+                </div>
+              </div>
+
+              {/* RIGHT: Info */}
+              <div className="space-y-6">
+                <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                  <p className="text-sm font-semibold">Info</p>
+
+                  <div className="mt-4 space-y-3 text-sm text-white/70">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="opacity-70">Kode</span>
+                      <span className="font-semibold text-white">
+                        {data.code || "-"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="opacity-70">Status</span>
+                      <span className="font-semibold text-white">
+                        {data.status || "-"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="opacity-70">Progress</span>
+                      <span className="font-semibold text-white">
+                        {clampProgress(Number(data.progress) || 0)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
+                    <p className="text-xs text-white/60 leading-relaxed">
+                      Jika ada pertanyaan, silakan hubungi bengkel.  
+                      Halaman ini dibuat agar customer bisa melihat progress secara transparan.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-white/10 to-white/5 p-6">
+                  <p className="text-sm font-semibold">
+                    Bagus Restoration
+                  </p>
+                  <p className="mt-2 text-sm text-white/70">
+                    Bengkel motor profesional dengan update progress realtime.
+                  </p>
+
+                  <div className="mt-5 flex flex-col gap-3">
+                    <Link
+                      href="/progress"
+                      className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition text-center"
+                    >
+                      Lihat Daftar Progress
+                    </Link>
+
+                    <Link
+                      href="/"
+                      className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition text-center"
+                    >
+                      Kembali ke Home
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
     </main>
   );
 }
