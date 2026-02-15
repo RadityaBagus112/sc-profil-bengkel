@@ -11,16 +11,19 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-type ProgressDoc = {
+type MotorDoc = {
   id: string;
   customerName?: string;
   phone?: string;
   motor?: string;
   platNomor?: string;
   keluhan?: string;
+
   status?: "menunggu" | "proses" | "selesai";
   progressText?: string;
+
   photoUrl?: string;
+
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 };
@@ -74,47 +77,26 @@ function formatTime(ts?: Timestamp) {
 
 export default function ProgressPage() {
   const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<ProgressDoc[]>([]);
+  const [items, setItems] = useState<MotorDoc[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<
     "all" | "menunggu" | "proses" | "selesai"
   >("all");
 
-  async function tryLoadFromCollections() {
-    const collectionCandidates = ["progress", "jobs", "servis"];
-
-    for (const colName of collectionCandidates) {
-      try {
-        const q = query(
-          collection(db, colName),
-          orderBy("updatedAt", "desc")
-        );
-
-        const snap = await getDocs(q);
-
-        if (!snap.empty) {
-          const list: ProgressDoc[] = snap.docs.map((d) => ({
-            id: d.id,
-            ...(d.data() as any),
-          }));
-
-          console.log("DATA DITEMUKAN DARI COLLECTION:", colName);
-          setItems(list);
-          return;
-        }
-      } catch (err) {
-        console.log("Gagal baca collection:", colName, err);
-      }
-    }
-
-    // kalau semua kosong
-    setItems([]);
-  }
-
   async function load() {
     try {
       setLoading(true);
-      await tryLoadFromCollections();
+
+      // 🔥 DATA ASLI KAMU ADA DI COLLECTION "motors"
+      const q = query(collection(db, "motors"), orderBy("updatedAt", "desc"));
+      const snap = await getDocs(q);
+
+      const list: MotorDoc[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as any),
+      }));
+
+      setItems(list);
     } catch (err) {
       console.error("Load progress error:", err);
       setItems([]);
@@ -245,11 +227,8 @@ export default function ProgressPage() {
                 Data masih kosong / tidak ditemukan.
               </p>
               <p className="mt-2 text-xs text-white/50">
-                Coba klik refresh, atau kemungkinan data kamu tersimpan di
-                collection lain.
-              </p>
-              <p className="mt-3 text-xs text-white/50">
-                (Buka DevTools → Console untuk lihat collection mana yang kebaca)
+                Kalau kamu yakin sudah tambah data, berarti field updatedAt belum
+                ada.
               </p>
             </div>
           )}
