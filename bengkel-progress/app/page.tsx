@@ -1,246 +1,341 @@
-import Link from "next/link";
-
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-[#07070A] text-white">
-      {/* Background glow */}
+    <main className="min-h-screen bg-black text-white">
+      {/* Background */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 h-[650px] w-[650px] -translate-x-1/2 rounded-full bg-white/10 blur-[140px]" />
-        <div className="absolute bottom-[-200px] left-[-200px] h-[520px] w-[520px] rounded-full bg-white/5 blur-[140px]" />
-        <div className="absolute bottom-[-220px] right-[-220px] h-[520px] w-[520px] rounded-full bg-white/5 blur-[140px]" />
+        <div className="absolute left-1/2 top-[-220px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute left-[10%] top-[35%] h-[420px] w-[420px] rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="absolute right-[10%] top-[55%] h-[420px] w-[420px] rounded-full bg-purple-500/10 blur-3xl" />
       </div>
 
-      {/* Container */}
-      <div className="relative mx-auto max-w-6xl px-4 py-10 md:py-16">
-        {/* NAVBAR */}
-        <header className="flex items-center justify-between">
+      {/* Navbar */}
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/40 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-white/10 grid place-items-center border border-white/10">
-              <span className="text-lg">🛠️</span>
+            <div className="h-9 w-9 rounded-2xl bg-white/10 ring-1 ring-white/10 flex items-center justify-center">
+              <span className="text-sm font-semibold">BR</span>
             </div>
-
             <div className="leading-tight">
-              <p className="text-sm font-semibold tracking-wide">
+              <p className="text-sm font-semibold tracking-tight">
                 Bagus Restoration
               </p>
-              <p className="text-xs text-white/60">
-                Bengkel Progress Tracking
-              </p>
+              <p className="text-xs text-white/60">Bengkel Motor Profesional</p>
             </div>
           </div>
+
+          <nav className="hidden items-center gap-6 text-sm text-white/70 md:flex">
+            <a href="#fitur" className="hover:text-white transition">
+              Fitur
+            </a>
+            <a href="#progress" className="hover:text-white transition">
+              Progress
+            </a>
+            <a href="#kontak" className="hover:text-white transition">
+              Kontak
+            </a>
+          </nav>
 
           <div className="flex items-center gap-2">
-            {/* route tetap */}
-            <Link
-              href="/cek"
-              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/10 transition"
-            >
-              Cek Progres
-            </Link>
-
-            {/* route tetap */}
-            <Link
-              href="/admin/login"
-              className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold hover:bg-white/90 transition"
+            <a
+              href="/admin"
+              className="rounded-xl bg-white text-black px-4 py-2 text-sm font-semibold hover:bg-white/90 transition"
             >
               Admin
-            </Link>
+            </a>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* HERO */}
-        <section className="mt-14 md:mt-16 grid gap-12 md:grid-cols-2 md:items-center">
-          {/* LEFT */}
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/80">
-              <span className="h-2 w-2 rounded-full bg-green-400" />
-              Online • Transparan • Profesional
+      {/* Hero */}
+      <section className="relative">
+        <div className="mx-auto max-w-6xl px-4 pt-16 pb-10 md:pt-24 md:pb-16">
+          <div className="grid gap-10 md:grid-cols-2 md:items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
+                <span className="h-2 w-2 rounded-full bg-green-400" />
+                Sistem transparan & profesional
+              </div>
+
+              <h1 className="mt-5 text-4xl font-semibold tracking-tight md:text-6xl">
+                Bengkel motor yang{" "}
+                <span className="text-white/70">rapi</span>,{" "}
+                <span className="text-white/70">transparan</span>, dan{" "}
+                <span className="text-white/70">profesional</span>.
+              </h1>
+
+              <p className="mt-5 max-w-xl text-base leading-relaxed text-white/70 md:text-lg">
+                Bagus Restoration membantu kamu melihat progress pengerjaan
+                motor, riwayat servis, serta update foto pengerjaan secara jelas
+                dan terpercaya.
+              </p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <a
+                  href="#progress"
+                  className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+                >
+                  Lihat Progress
+                </a>
+
+                <a
+                  href="#kontak"
+                  className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+                >
+                  Hubungi Bengkel
+                </a>
+              </div>
+
+              <div className="mt-8 flex items-center gap-6 text-xs text-white/50">
+                <div className="flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-lg bg-white/10 ring-1 ring-white/10" />
+                  Update realtime
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-lg bg-white/10 ring-1 ring-white/10" />
+                  Bukti foto
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-lg bg-white/10 ring-1 ring-white/10" />
+                  Riwayat servis
+                </div>
+              </div>
             </div>
 
-            <h1 className="mt-6 text-4xl md:text-5xl font-semibold tracking-tight">
-              Cek progres motor kamu{" "}
-              <span className="text-white/60">kapan saja</span>.
-            </h1>
+            {/* Preview Card */}
+            <div className="relative">
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <p className="text-sm font-semibold">Contoh Progress</p>
+                  <span className="text-xs text-white/50">Live</span>
+                </div>
 
-            <p className="mt-5 text-base md:text-lg text-white/70 leading-relaxed">
-              Website ini dibuat untuk memudahkan pelanggan melihat status
-              pengerjaan motor: progres %, detail servis, serta dokumentasi foto
-              before / process / after.
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">CBR 150R</p>
+                      <span className="rounded-full bg-green-500/10 px-3 py-1 text-xs text-green-300 ring-1 ring-green-500/20">
+                        Selesai
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-white/60">
+                      Servis besar + cek kelistrikan + ganti oli
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">Vario 125</p>
+                      <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs text-yellow-200 ring-1 ring-yellow-500/20">
+                        Proses
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-white/60">
+                      Bongkar CVT + pembersihan + cek belt
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">NMAX</p>
+                      <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs text-blue-200 ring-1 ring-blue-500/20">
+                        Menunggu
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-white/60">
+                      Menunggu sparepart datang
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-r from-white/5 to-white/0 p-4">
+                  <p className="text-xs text-white/60">
+                    Semua update dikelola oleh admin bengkel dan bisa dilihat
+                    customer kapan saja.
+                  </p>
+                </div>
+              </div>
+
+              <div className="absolute -right-10 -top-10 hidden h-40 w-40 rounded-full bg-white/10 blur-3xl md:block" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section id="fitur" className="relative border-t border-white/10">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              Fitur yang bikin customer makin percaya
+            </h2>
+            <p className="mt-3 text-white/70">
+              Ini bukan cuma website bengkel biasa. Ini sistem kerja bengkel yang
+              terlihat profesional.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {[
+              {
+                title: "Update Foto Progress",
+                desc: "Admin bisa upload foto pengerjaan langsung dari galeri HP.",
+              },
+              {
+                title: "Status Transparan",
+                desc: "Customer tahu motornya sedang dikerjakan, menunggu, atau selesai.",
+              },
+              {
+                title: "Riwayat Servis",
+                desc: "Setiap pekerjaan tercatat rapi. Cocok untuk repeat customer.",
+              },
+              {
+                title: "Cepat & Ringan",
+                desc: "Tampilan modern, loading cepat, enak dibuka dari HP.",
+              },
+              {
+                title: "Admin Panel",
+                desc: "Admin bisa tambah, edit, hapus data dengan aman.",
+              },
+              {
+                title: "Cloudinary Upload",
+                desc: "Upload foto tanpa Firebase Storage (gratis & stabil).",
+              },
+            ].map((f, i) => (
+              <div
+                key={i}
+                className="rounded-3xl border border-white/10 bg-white/5 p-5 hover:bg-white/10 transition"
+              >
+                <p className="text-sm font-semibold">{f.title}</p>
+                <p className="mt-2 text-sm text-white/65 leading-relaxed">
+                  {f.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Progress section */}
+      <section id="progress" className="relative border-t border-white/10">
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <div className="grid gap-10 md:grid-cols-2 md:items-center">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+                Customer bisa lihat progress kapan saja
+              </h2>
+              <p className="mt-3 text-white/70 leading-relaxed">
+                Kamu bisa kasih link ke customer. Mereka tinggal buka, langsung
+                lihat update terbaru, status pengerjaan, dan foto-foto bukti.
+              </p>
+
+              <div className="mt-6 space-y-3 text-sm text-white/65">
+                <div className="flex items-start gap-3">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-white/60" />
+                  Tidak perlu chat bolak-balik.
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-white/60" />
+                  Customer percaya karena ada bukti foto.
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-white/60" />
+                  Tampilan rapi bikin bengkel kamu naik kelas.
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+              <p className="text-sm font-semibold">Contoh tampilan progress</p>
+              <div className="mt-4 grid gap-3">
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <p className="text-sm font-semibold">Motor: Beat 2020</p>
+                  <p className="mt-1 text-xs text-white/60">
+                    Status: Proses - Bongkar CVT
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <p className="text-sm font-semibold">Motor: Ninja 250</p>
+                  <p className="mt-1 text-xs text-white/60">
+                    Status: Menunggu - Sparepart
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <a
+                  href="/progress"
+                  className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+                >
+                  Buka Halaman Progress
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section
+        id="kontak"
+        className="relative border-t border-white/10"
+      >
+        <div className="mx-auto max-w-6xl px-4 py-16">
+          <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-white/10 to-white/5 p-8 md:p-12">
+            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              Siap bikin bengkel kamu terlihat profesional?
+            </h2>
+            <p className="mt-3 max-w-2xl text-white/70 leading-relaxed">
+              Mulai sekarang customer tidak cuma percaya dari omongan, tapi dari
+              sistem yang jelas. Progress, status, dan bukti foto.
             </p>
 
-            {/* CTA */}
-            <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/cek"
-                className="rounded-2xl bg-white text-black px-6 py-3 text-sm font-semibold hover:bg-white/90 transition text-center"
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="https://wa.me/628xxxxxxxxxx"
+                target="_blank"
+                className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+                rel="noreferrer"
               >
-                🔍 Cek Progres Motor
-              </Link>
+                Chat WhatsApp
+              </a>
 
-              <Link
-                href="/admin/login"
-                className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-white/90 hover:bg-white/10 transition text-center"
+              <a
+                href="/progress"
+                className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
               >
-                ⚙️ Masuk Admin
-              </Link>
+                Lihat Progress
+              </a>
             </div>
 
-            {/* MINI STATS */}
-            <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-lg font-semibold">Realtime</p>
-                <p className="text-xs text-white/60 mt-1">
-                  Update status cepat
-                </p>
-              </div>
+            <p className="mt-6 text-xs text-white/50">
+              *Ganti link WhatsApp di kode ini dengan nomor bengkel kamu.
+            </p>
+          </div>
+        </div>
+      </section>
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-lg font-semibold">Rapi</p>
-                <p className="text-xs text-white/60 mt-1">
-                  Data tersusun otomatis
-                </p>
-              </div>
+      {/* Footer */}
+      <footer className="border-t border-white/10">
+        <div className="mx-auto max-w-6xl px-4 py-10">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <p className="text-sm text-white/60">
+              © {new Date().getFullYear()} Bagus Restoration. All rights reserved.
+            </p>
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-lg font-semibold">Aman</p>
-                <p className="text-xs text-white/60 mt-1">
-                  Admin terproteksi login
-                </p>
-              </div>
-            </div>
-
-            {/* QUICK MENU */}
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Link
-                href="/admin/add"
-                className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"
-              >
-                <p className="text-sm font-semibold">➕ Tambah Motor</p>
-                <p className="mt-1 text-xs text-white/60">
-                  Input data motor baru + kode cek.
-                </p>
-              </Link>
-
-              <Link
-                href="/admin/list"
-                className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"
-              >
-                <p className="text-sm font-semibold">📋 Admin List</p>
-                <p className="mt-1 text-xs text-white/60">
-                  Cari, edit, upload foto, kirim WA.
-                </p>
-              </Link>
+            <div className="flex items-center gap-5 text-sm text-white/60">
+              <a href="/progress" className="hover:text-white transition">
+                Progress
+              </a>
+              <a href="/admin" className="hover:text-white transition">
+                Admin
+              </a>
+              <a href="#fitur" className="hover:text-white transition">
+                Fitur
+              </a>
             </div>
           </div>
-
-          {/* RIGHT */}
-          <div className="rounded-[32px] border border-white/10 bg-white/5 p-5 md:p-6 shadow-xl">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-white/90">
-                Preview Progress
-              </p>
-              <span className="text-xs text-white/60">Customer View</span>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                <p className="text-sm font-semibold">🛵 Honda Vario 125</p>
-                <p className="mt-1 text-xs text-white/60">
-                  Plat: R 1234 ABC • Kode: X9A21B
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                <p className="text-sm font-semibold">📍 Status</p>
-                <p className="mt-1 text-xs text-white/60">
-                  Sedang pengerjaan • Servis CVT + ganti kampas
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">Progress</p>
-                  <p className="text-xs text-white/60">72%</p>
-                </div>
-
-                <div className="mt-3 h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full w-[72%] rounded-full bg-white" />
-                </div>
-
-                <p className="mt-3 text-xs text-white/60">
-                  Foto before / process / after bisa dilihat pelanggan.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                <p className="text-sm font-semibold">✨ Fitur</p>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-white/70">
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                    🔍 Cek via kode
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                    📲 Kirim WA
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                    🖼 Upload foto
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                    ✏️ Edit progres
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                <p className="text-sm font-semibold">📌 Tips</p>
-                <p className="mt-1 text-xs text-white/60 leading-relaxed">
-                  Pelanggan cukup masukkan kode cek untuk melihat progres. Admin
-                  tinggal update status & upload foto.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* FEATURE SECTION */}
-        <section className="mt-14 md:mt-20">
-          <h2 className="text-xl md:text-2xl font-semibold tracking-tight">
-            Kenapa sistem ini berguna?
-          </h2>
-          <p className="mt-2 text-white/60 max-w-2xl">
-            Biar pelanggan tenang, bengkel lebih profesional, dan komunikasi
-            lebih rapi.
-          </p>
-
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="text-sm font-semibold">📌 Transparansi</p>
-              <p className="mt-2 text-sm text-white/60 leading-relaxed">
-                Pelanggan bisa cek status tanpa harus chat berkali-kali.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="text-sm font-semibold">🧾 Dokumentasi</p>
-              <p className="mt-2 text-sm text-white/60 leading-relaxed">
-                Foto before/process/after bikin pengerjaan lebih jelas.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="text-sm font-semibold">⚡ Efisiensi</p>
-              <p className="mt-2 text-sm text-white/60 leading-relaxed">
-                Admin cukup update sekali, pelanggan langsung lihat.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* FOOTER */}
-        <footer className="mt-16 md:mt-24 border-t border-white/10 pt-8 text-center text-xs text-white/50">
-          © {new Date().getFullYear()} Bagus Restoration • Built with Next.js +
-          Firebase + Cloudinary
-        </footer>
-      </div>
+        </div>
+      </footer>
     </main>
   );
 }
