@@ -166,7 +166,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl px-4 py-16">
           <div className="max-w-2xl">
             <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              Fitur yang bikin customer makin percaya
+              Fitur yang memudahkan costumer
             </h2>
             <p className="mt-3 text-white/70">
               Ini bukan cuma website bengkel biasa. Ini sistem kerja bengkel yang
@@ -224,8 +224,7 @@ export default function HomePage() {
                 Customer bisa lihat progress kapan saja
               </h2>
               <p className="mt-3 text-white/70 leading-relaxed">
-                Kamu bisa kasih link ke customer. Mereka tinggal buka, langsung
-                lihat update terbaru, status pengerjaan, dan foto-foto bukti.
+                Website ini dibuat untuk memudahkan costumer melihat progress secara real time dan jelas.
               </p>
 
               <div className="mt-6 space-y-3 text-sm text-white/65">
@@ -235,11 +234,11 @@ export default function HomePage() {
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-1 h-2 w-2 rounded-full bg-white/60" />
-                  Customer percaya karena ada bukti foto.
+                  Customer bisa cek progress motor.
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-1 h-2 w-2 rounded-full bg-white/60" />
-                  Tampilan rapi bikin bengkel kamu naik kelas.
+                  Cek kondisi motor kapanpun.
                 </div>
               </div>
             </div>
@@ -283,7 +282,7 @@ export default function HomePage() {
       {/* Left CTA */}
       <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-white/10 to-white/5 p-8 md:p-10">
         <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Siap bikin bengkel kamu terlihat profesional?
+          Jika ada pertanyaan silahkan klik tombol di bawah ini?
         </h2>
         <p className="mt-3 max-w-xl text-white/70 leading-relaxed">
           Mulai sekarang customer tidak cuma percaya dari omongan, tapi dari
@@ -292,7 +291,7 @@ export default function HomePage() {
 
         <div className="mt-7 flex flex-col gap-3 sm:flex-row">
           <a
-            href="https://wa.me/628xxxxxxxxxx"
+            href="https://wa.me/62859126469320"
             target="_blank"
             className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
             rel="noreferrer"
@@ -309,7 +308,7 @@ export default function HomePage() {
         </div>
 
         <p className="mt-6 text-xs text-white/50">
-          *Ganti link WhatsApp di kode ini dengan nomor bengkel kamu.
+          *silahkan cek progress motor anda, jika ada pertanyaan hubungi admin bengkel.
         </p>
       </div>
 
@@ -358,7 +357,7 @@ export default function HomePage() {
         </div>
 
         <p className="mt-5 text-xs text-white/50">
-          *Ganti alamat & link maps sesuai lokasi bengkel kamu.
+          Terima kasih atas kepercayaan anda.
         </p>
       </div>
     </div>
