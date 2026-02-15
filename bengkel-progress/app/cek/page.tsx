@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
-import { db } from "@/lib/firebase";
+import { db } from '@/lib/firebase';
 import {
   collection,
   getDocs,
   query,
   where,
   Timestamp,
-} from "firebase/firestore";
+} from 'firebase/firestore';
 
 type MotorDoc = {
   id: string;
@@ -40,44 +40,48 @@ function clampProgress(val: number) {
 }
 
 function formatTime(ts?: Timestamp) {
-  if (!ts) return "-";
+  if (!ts) return '-';
   try {
     const d = ts.toDate();
-    return d.toLocaleString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    return d.toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   } catch {
-    return "-";
+    return '-';
   }
 }
 
 function statusBadge(status?: string) {
   const base =
-    "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1";
+    'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1';
 
-  const s = (status || "").toLowerCase();
+  const s = (status || '').toLowerCase();
 
-  if (s.includes("selesai")) {
+  if (s.includes('selesai')) {
     return (
-      <span className={`${base} bg-green-500/10 text-green-300 ring-green-500/20`}>
+      <span
+        className={`${base} bg-green-500/10 text-green-300 ring-green-500/20`}
+      >
         Selesai
       </span>
     );
   }
 
-  if (s.includes("proses") || s.includes("dikerjakan")) {
+  if (s.includes('proses') || s.includes('dikerjakan')) {
     return (
-      <span className={`${base} bg-yellow-500/10 text-yellow-200 ring-yellow-500/20`}>
+      <span
+        className={`${base} bg-yellow-500/10 text-yellow-200 ring-yellow-500/20`}
+      >
         Proses
       </span>
     );
   }
 
-  if (s.includes("menunggu")) {
+  if (s.includes('menunggu')) {
     return (
       <span className={`${base} bg-blue-500/10 text-blue-200 ring-blue-500/20`}>
         Menunggu
@@ -87,18 +91,12 @@ function statusBadge(status?: string) {
 
   return (
     <span className={`${base} bg-white/10 text-white/80 ring-white/15`}>
-      {status || "Status"}
+      {status || 'Status'}
     </span>
   );
 }
 
-function PhotoCard({
-  title,
-  url,
-}: {
-  title: string;
-  url?: string;
-}) {
+function PhotoCard({ title, url }: { title: string; url?: string }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
@@ -108,9 +106,7 @@ function PhotoCard({
 
       {!url ? (
         <div className="p-6">
-          <p className="text-sm text-white/60">
-            Belum ada foto.
-          </p>
+          <p className="text-sm text-white/60">Belum ada foto.</p>
         </div>
       ) : (
         <div className="bg-black/30">
@@ -129,21 +125,21 @@ export default function CekPage() {
   const params = useSearchParams();
 
   const code = useMemo(() => {
-    const c = (params.get("code") || "").trim().toUpperCase();
+    const c = (params.get('code') || '').trim().toUpperCase();
     return c;
   }, [params]);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<MotorDoc | null>(null);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useState('');
 
   async function loadByCode() {
-    setMsg("");
+    setMsg('');
     setData(null);
 
     if (!code) {
       setLoading(false);
-      setMsg("Kode cek tidak ditemukan di URL. Contoh: /cek?code=ABC123");
+      setMsg('Kode cek tidak ditemukan di URL. Contoh: /cek?code=ABC123');
       return;
     }
 
@@ -151,12 +147,12 @@ export default function CekPage() {
       setLoading(true);
 
       // Cari motor berdasarkan code
-      const q = query(collection(db, "motors"), where("code", "==", code));
+      const q = query(collection(db, 'motors'), where('code', '==', code));
       const snap = await getDocs(q);
 
       if (snap.empty) {
         setData(null);
-        setMsg("Data tidak ditemukan. Pastikan kode cek benar.");
+        setMsg('Data tidak ditemukan. Pastikan kode cek benar.');
         return;
       }
 
@@ -166,8 +162,8 @@ export default function CekPage() {
         ...(doc.data() as any),
       });
     } catch (err: any) {
-      console.error("Load cek error:", err);
-      setMsg("Terjadi error saat memuat data.");
+      console.error('Load cek error:', err);
+      setMsg('Terjadi error saat memuat data.');
     } finally {
       setLoading(false);
     }
@@ -236,7 +232,9 @@ export default function CekPage() {
             <div className="mt-4 md:mt-0">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <p className="text-xs text-white/60">Kode Cek</p>
-                <p className="text-sm font-bold tracking-wider">{code || "-"}</p>
+                <p className="text-sm font-bold tracking-wider">
+                  {code || '-'}
+                </p>
               </div>
             </div>
           </div>
@@ -251,7 +249,7 @@ export default function CekPage() {
           {/* Error / Empty */}
           {!loading && !data && (
             <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-8">
-              <p className="text-sm text-white/70">{msg || "Data kosong."}</p>
+              <p className="text-sm text-white/70">{msg || 'Data kosong.'}</p>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <Link
@@ -280,12 +278,12 @@ export default function CekPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-xl font-bold">
-                        {data.name || "Motor"}
+                        {data.name || 'Motor'}
                       </h2>
                       <p className="mt-1 text-sm text-white/70">
-                        Plat:{" "}
+                        Plat:{' '}
                         <span className="font-semibold text-white">
-                          {data.plate || "-"}
+                          {data.plate || '-'}
                         </span>
                       </p>
                     </div>
@@ -312,7 +310,7 @@ export default function CekPage() {
                     </div>
 
                     <p className="mt-3 text-xs text-white/50">
-                      Update terakhir:{" "}
+                      Update terakhir:{' '}
                       {formatTime(data.updatedAt || data.createdAt)}
                     </p>
                   </div>
@@ -321,7 +319,7 @@ export default function CekPage() {
                   <div className="mt-6">
                     <p className="text-sm font-semibold">Detail Pengerjaan</p>
                     <p className="mt-2 text-sm text-white/70 whitespace-pre-wrap leading-relaxed">
-                      {data.detail || "Belum ada detail pengerjaan."}
+                      {data.detail || 'Belum ada detail pengerjaan.'}
                     </p>
                   </div>
                 </div>
@@ -343,14 +341,14 @@ export default function CekPage() {
                     <div className="flex items-center justify-between gap-3">
                       <span className="opacity-70">Kode</span>
                       <span className="font-semibold text-white">
-                        {data.code || "-"}
+                        {data.code || '-'}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
                       <span className="opacity-70">Status</span>
                       <span className="font-semibold text-white">
-                        {data.status || "-"}
+                        {data.status || '-'}
                       </span>
                     </div>
 
@@ -364,16 +362,15 @@ export default function CekPage() {
 
                   <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
                     <p className="text-xs text-white/60 leading-relaxed">
-                      Jika ada pertanyaan, silakan hubungi bengkel.  
-                      Halaman ini dibuat agar customer bisa melihat progress secara transparan.
+                      Jika ada pertanyaan, silakan hubungi bengkel. Halaman ini
+                      dibuat agar customer bisa melihat progress secara
+                      transparan.
                     </p>
                   </div>
                 </div>
 
                 <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-white/10 to-white/5 p-6">
-                  <p className="text-sm font-semibold">
-                    Bagus Restoration
-                  </p>
+                  <p className="text-sm font-semibold">Bagus Restoration</p>
                   <p className="mt-2 text-sm text-white/70">
                     Bengkel motor profesional dengan update progress realtime.
                   </p>
