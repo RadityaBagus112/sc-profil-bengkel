@@ -292,7 +292,7 @@ Terima kasih 🙏`;
                 {/* Buttons */}
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button
-                    onClick={() => router.push(`/admin/edit?id=${m.id}`)}
+                    onClick={() => router.push('/admin/edit/${m.id}')}
                     className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold"
                   >
                     ✏️ Edit
