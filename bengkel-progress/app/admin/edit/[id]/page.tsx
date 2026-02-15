@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -10,20 +10,18 @@ import {
   doc,
   getDoc,
   updateDoc,
-  deleteDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 
-import { uploadToCloudinary } from '@/lib/cloudinary';
+type Motor = {
+  name: string;
+  plate: string;
+  code: string;
+  wa: string;
 
-type MotorData = {
-  name?: string;
-  plate?: string;
-  code?: string;
-  wa?: string;
-
-  status?: string;
-  detail?: string;
-  progress?: number;
+  status: string;
+  detail: string;
+  progress: number;
 
   photoBefore?: string;
   photoProcess?: string;
@@ -33,65 +31,31 @@ type MotorData = {
 export default function AdminEditPage() {
   const router = useRouter();
   const params = useParams();
-  const id = params?.id as string;
+
+  const id = useMemo(() => {
+    const raw = params?.id;
+    return typeof raw === 'string' ? raw : '';
+  }, [params]);
 
   const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState(true);
+
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState('');
-
-  const [data, setData] = useState<MotorData>({
-    name: '',
-    plate: '',
-    code: '',
-    wa: '',
-    status: '',
-    detail: '',
-    progress: 0,
-    photoBefore: '',
-    photoProcess: '',
-    photoAfter: '',
-  });
-
   const [msg, setMsg] = useState('');
 
-  // Proteksi admin
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.push('/admin/login');
-      }
-    });
+  // form state
+  const [name, setName] = useState('');
+  const [plate, setPlate] = useState('');
+  const [code, setCode] = useState('');
+  const [wa, setWa] = useState('');
 
-    return () => unsub();
-  }, [router]);
+  const [status, setStatus] = useState('Motor masuk');
+  const [detail, setDetail] = useState('');
+  const [progress, setProgress] = useState<number>(0);
 
-  // Load data by ID
-  useEffect(() => {
-    if (!id) return;
-
-    const load = async () => {
-      try {
-        setLoading(true);
-        const ref = doc(db, 'motors', id);
-        const snap = await getDoc(ref);
-
-        if (!snap.exists()) {
-          setMsg('❌ Data tidak ditemukan.');
-          setLoading(false);
-          return;
-        }
-
-        setData(snap.data() as MotorData);
-      } catch (err: any) {
-        console.error(err);
-        setMsg('❌ Gagal mengambil data: ' + (err?.message || 'Unknown error'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, [id]);
+  const [photoBefore, setPhotoBefore] = useState('');
+  const [photoProcess, setPhotoProcess] = useState('');
+  const [photoAfter, setPhotoAfter] = useState('');
 
   const clampProgress = (val: number) => {
     if (val < 0) return 0;
@@ -99,378 +63,298 @@ export default function AdminEditPage() {
     return val;
   };
 
-  const handleSave = async () => {
-    setMsg('');
+  // auth protect
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) router.push('/admin/login');
+      else setLoading(false);
+    });
 
-    if (!data.name?.trim()) return setMsg('❌ Nama motor wajib diisi.');
-    if (!data.plate?.trim()) return setMsg('❌ Plat nomor wajib diisi.');
-    if (!data.code?.trim()) return setMsg('❌ Kode cek wajib diisi.');
-    if (!data.wa?.trim()) return setMsg('❌ No WA pelanggan wajib diisi.');
+    return () => unsub();
+  }, [router]);
 
-    if (!auth.currentUser) {
-      setMsg('❌ Kamu belum login. Silakan login ulang.');
-      router.push('/admin/login');
+  // fetch motor
+  useEffect(() => {
+    if (!id) return;
+
+    const run = async () => {
+      try {
+        setFetching(true);
+        setMsg('');
+
+        const ref = doc(db, 'motors', id);
+        const snap = await getDoc(ref);
+
+        if (!snap.exists()) {
+          setMsg('❌ Data tidak ditemukan (doc tidak ada).');
+          return;
+        }
+
+        const data = snap.data() as Motor;
+
+        setName(data.name || '');
+        setPlate(data.plate || '');
+        setCode(data.code || '');
+        setWa(data.wa || '');
+
+        setStatus(data.status || 'Motor masuk');
+        setDetail(data.detail || '');
+        setProgress(clampProgress(Number(data.progress) || 0));
+
+        setPhotoBefore(data.photoBefore || '');
+        setPhotoProcess(data.photoProcess || '');
+        setPhotoAfter(data.photoAfter || '');
+      } catch (err: any) {
+        console.error('Fetch error:', err);
+        setMsg('❌ Gagal mengambil data: ' + (err?.message || 'Unknown error'));
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    run();
+  }, [id]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!id) {
+      setMsg('❌ ID kosong. Route error.');
       return;
     }
+
+    setMsg('');
+
+    // validasi
+    if (!name.trim()) return setMsg('❌ Nama motor wajib diisi.');
+    if (!plate.trim()) return setMsg('❌ Plat nomor wajib diisi.');
+    if (!code.trim()) return setMsg('❌ Kode cek wajib diisi.');
+    if (!wa.trim()) return setMsg('❌ No WA pelanggan wajib diisi.');
 
     try {
       setSaving(true);
 
-      const payload = {
-        name: data.name.trim(),
-        plate: data.plate.trim().toUpperCase(),
-        code: data.code.trim().toUpperCase(),
-        wa: data.wa.trim(),
+      const ref = doc(db, 'motors', id);
 
-        status: (data.status || '').trim(),
-        detail: (data.detail || '').trim(),
-        progress: clampProgress(Number(data.progress) || 0),
+      await updateDoc(ref, {
+        name: name.trim(),
+        plate: plate.trim().toUpperCase(),
+        code: code.trim().toUpperCase(),
+        wa: wa.trim(),
 
-        photoBefore: data.photoBefore || '',
-        photoProcess: data.photoProcess || '',
-        photoAfter: data.photoAfter || '',
-      };
+        status: status.trim(),
+        detail: detail.trim(),
+        progress: clampProgress(Number(progress) || 0),
 
-      await updateDoc(doc(db, 'motors', id), payload);
+        photoBefore: photoBefore.trim(),
+        photoProcess: photoProcess.trim(),
+        photoAfter: photoAfter.trim(),
+
+        updatedAt: serverTimestamp(),
+      });
 
       setMsg('✅ Data berhasil diupdate!');
-      setTimeout(() => {
-        router.push('/admin/list');
-      }, 700);
+      setTimeout(() => router.push('/admin/list'), 700);
     } catch (err: any) {
-      console.error(err);
+      console.error('Update error:', err);
       setMsg('❌ Gagal update: ' + (err?.message || 'Unknown error'));
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    const ok = confirm('Yakin mau hapus data ini?');
-    if (!ok) return;
-
-    try {
-      await deleteDoc(doc(db, 'motors', id));
-      alert('✅ Data berhasil dihapus.');
-      router.push('/admin/list');
-    } catch (err: any) {
-      console.error(err);
-      alert('❌ Gagal hapus: ' + (err?.message || 'Unknown error'));
-    }
-  };
-
-  const handleUpload = async (
-    type: 'before' | 'process' | 'after',
-    file: File
-  ) => {
-    try {
-      setUploading(`Uploading ${type}...`);
-
-      const url = await uploadToCloudinary(file);
-
-      const field =
-        type === 'before'
-          ? 'photoBefore'
-          : type === 'process'
-          ? 'photoProcess'
-          : 'photoAfter';
-
-      // update di firestore
-      await updateDoc(doc(db, 'motors', id), {
-        [field]: url,
-      });
-
-      // update state lokal biar langsung muncul
-      setData((prev) => ({
-        ...prev,
-        [field]: url,
-      }));
-    } catch (err: any) {
-      console.error(err);
-      alert('❌ Upload gagal: ' + (err?.message || 'Unknown error'));
-    } finally {
-      setUploading('');
-    }
-  };
-
-  const removePhoto = async (field: 'photoBefore' | 'photoProcess' | 'photoAfter') => {
-    const ok = confirm('Hapus foto ini?');
-    if (!ok) return;
-
-    try {
-      await updateDoc(doc(db, 'motors', id), {
-        [field]: '',
-      });
-
-      setData((prev) => ({
-        ...prev,
-        [field]: '',
-      }));
-    } catch (err: any) {
-      console.error(err);
-      alert('❌ Gagal hapus foto.');
-    }
-  };
-
   if (loading) {
     return (
-      <main style={{ padding: 20, fontFamily: 'Arial', color: 'white' }}>
-        <h2>Loading...</h2>
+      <main className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
+        <p className="opacity-80">Loading...</p>
       </main>
     );
   }
 
   return (
-    <main style={{ padding: 20, fontFamily: 'Arial', color: 'white' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 26, fontWeight: 'bold' }}>✏️ Edit Data Motor</h1>
-        <p style={{ opacity: 0.8, marginTop: 6 }}>
-          Update status, progres, detail, dan foto.
-        </p>
+    <main className="min-h-screen bg-zinc-950 text-white px-4 py-6">
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold">✏️ Edit Data Motor</h1>
+            <p className="text-sm opacity-70 mt-1">
+              Update status, progress, detail, dan foto.
+            </p>
+          </div>
+
+          <button
+            onClick={() => router.push('/admin/list')}
+            className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold"
+          >
+            ⬅️ Back
+          </button>
+        </div>
+
+        {/* INFO */}
+        <div className="mt-4 p-4 rounded-2xl bg-zinc-900 border border-white/10">
+          <p className="text-xs opacity-70">
+            ID: <span className="font-mono">{id || '-'}</span>
+          </p>
+        </div>
 
         {msg && (
-          <p style={{ marginTop: 14, fontWeight: 'bold', color: 'yellow' }}>
-            {msg}
-          </p>
+          <div className="mt-4 p-4 rounded-2xl bg-zinc-900 border border-white/10">
+            <p className="font-bold text-yellow-300">{msg}</p>
+          </div>
         )}
 
-        {/* FORM */}
-        <div
-          style={{
-            marginTop: 20,
-            border: '1px solid #333',
-            borderRadius: 14,
-            padding: 16,
-            background: '#0f0f0f',
-          }}
-        >
-          <label style={{ fontWeight: 'bold' }}>Nama Motor</label>
-          <input
-            value={data.name || ''}
-            onChange={(e) => setData({ ...data, name: e.target.value })}
-            style={{
-              width: '100%',
-              padding: 12,
-              borderRadius: 10,
-              marginTop: 8,
-              marginBottom: 14,
-            }}
-          />
+        {fetching ? (
+          <div className="mt-6 p-6 rounded-2xl bg-zinc-900 border border-white/10">
+            <p className="opacity-80">Mengambil data...</p>
+          </div>
+        ) : (
+          <form
+            onSubmit={handleSave}
+            className="mt-6 p-5 rounded-2xl bg-zinc-900 border border-white/10"
+          >
+            {/* Nama */}
+            <label className="text-sm font-bold">Nama Motor</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+              placeholder="Contoh: Honda Vario 125"
+            />
 
-          <label style={{ fontWeight: 'bold' }}>Plat Nomor</label>
-          <input
-            value={data.plate || ''}
-            onChange={(e) => setData({ ...data, plate: e.target.value })}
-            style={{
-              width: '100%',
-              padding: 12,
-              borderRadius: 10,
-              marginTop: 8,
-              marginBottom: 14,
-            }}
-          />
-
-          <label style={{ fontWeight: 'bold' }}>Kode Cek</label>
-          <input
-            value={data.code || ''}
-            onChange={(e) => setData({ ...data, code: e.target.value })}
-            style={{
-              width: '100%',
-              padding: 12,
-              borderRadius: 10,
-              marginTop: 8,
-              marginBottom: 14,
-            }}
-          />
-
-          <label style={{ fontWeight: 'bold' }}>No WA Pelanggan</label>
-          <input
-            value={data.wa || ''}
-            onChange={(e) => setData({ ...data, wa: e.target.value })}
-            placeholder="628xxxx"
-            style={{
-              width: '100%',
-              padding: 12,
-              borderRadius: 10,
-              marginTop: 8,
-              marginBottom: 14,
-            }}
-          />
-
-          <label style={{ fontWeight: 'bold' }}>Status</label>
-          <input
-            value={data.status || ''}
-            onChange={(e) => setData({ ...data, status: e.target.value })}
-            style={{
-              width: '100%',
-              padding: 12,
-              borderRadius: 10,
-              marginTop: 8,
-              marginBottom: 14,
-            }}
-          />
-
-          <label style={{ fontWeight: 'bold' }}>Detail</label>
-          <textarea
-            value={data.detail || ''}
-            onChange={(e) => setData({ ...data, detail: e.target.value })}
-            style={{
-              width: '100%',
-              padding: 12,
-              borderRadius: 10,
-              marginTop: 8,
-              minHeight: 120,
-              marginBottom: 14,
-            }}
-          />
-
-          <label style={{ fontWeight: 'bold' }}>Progress (%)</label>
-          <input
-            type="number"
-            value={data.progress || 0}
-            onChange={(e) =>
-              setData({
-                ...data,
-                progress: clampProgress(Number(e.target.value)),
-              })
-            }
-            min={0}
-            max={100}
-            style={{
-              width: '100%',
-              padding: 12,
-              borderRadius: 10,
-              marginTop: 8,
-            }}
-          />
-
-          {/* FOTO */}
-          <div style={{ marginTop: 22 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 'bold' }}>
-              📸 Foto (Before / Process / After)
-            </h3>
-
-            {uploading && (
-              <p style={{ marginTop: 10, color: 'yellow', fontWeight: 'bold' }}>
-                {uploading}
-              </p>
-            )}
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(1, 1fr)',
-                gap: 14,
-                marginTop: 14,
-              }}
-            >
-              {[
-                { label: 'Before', field: 'photoBefore', type: 'before' },
-                { label: 'Process', field: 'photoProcess', type: 'process' },
-                { label: 'After', field: 'photoAfter', type: 'after' },
-              ].map((item) => {
-                const url = (data as any)[item.field] as string;
-
-                return (
-                  <div
-                    key={item.field}
-                    style={{
-                      border: '1px solid #333',
-                      borderRadius: 14,
-                      padding: 12,
-                    }}
-                  >
-                    <b>{item.label}</b>
-
-                    <div style={{ marginTop: 10 }}>
-                      {url ? (
-                        <img
-                          src={url}
-                          alt={item.label}
-                          style={{
-                            width: '100%',
-                            height: 200,
-                            objectFit: 'cover',
-                            borderRadius: 12,
-                            border: '1px solid #222',
-                          }}
-                        />
-                      ) : (
-                        <p style={{ opacity: 0.7, marginTop: 10 }}>
-                          Belum ada foto
-                        </p>
-                      )}
-                    </div>
-
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ marginTop: 10, width: '100%' }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        handleUpload(item.type as any, file);
-                      }}
-                    />
-
-                    {url && (
-                      <button
-                        onClick={() => removePhoto(item.field as any)}
-                        style={{
-                          marginTop: 10,
-                          width: '100%',
-                          padding: '10px 12px',
-                          cursor: 'pointer',
-                          fontWeight: 'bold',
-                        }}
-                      >
-                        🗑️ Hapus Foto
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+            {/* Plat */}
+            <div className="mt-4">
+              <label className="text-sm font-bold">Plat Nomor</label>
+              <input
+                value={plate}
+                onChange={(e) => setPlate(e.target.value)}
+                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+                placeholder="Contoh: R 1234 ABC"
+              />
             </div>
-          </div>
 
-          {/* BUTTONS */}
-          <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                padding: '12px 16px',
-                fontWeight: 'bold',
-                cursor: saving ? 'not-allowed' : 'pointer',
-                opacity: saving ? 0.6 : 1,
-              }}
-            >
-              {saving ? 'Menyimpan...' : '💾 Simpan Update'}
-            </button>
+            {/* Code */}
+            <div className="mt-4">
+              <label className="text-sm font-bold">Kode Cek</label>
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+                placeholder="Contoh: X9A21B"
+              />
+            </div>
 
-            <button
-              onClick={() => router.push('/admin/list')}
-              style={{
-                padding: '12px 16px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-              }}
-            >
-              ⬅️ Kembali
-            </button>
+            {/* WA */}
+            <div className="mt-4">
+              <label className="text-sm font-bold">No WA Pelanggan</label>
+              <input
+                value={wa}
+                onChange={(e) => setWa(e.target.value)}
+                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+                placeholder="Contoh: 6281234567890"
+              />
+              <p className="text-xs opacity-60 mt-2">
+                Wajib format 62xxxx (tanpa +)
+              </p>
+            </div>
 
-            <button
-              onClick={handleDelete}
-              style={{
-                padding: '12px 16px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-              }}
-            >
-              ❌ Hapus Data
-            </button>
-          </div>
-        </div>
+            {/* Status */}
+            <div className="mt-4">
+              <label className="text-sm font-bold">Status</label>
+              <input
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+                placeholder="Contoh: Motor masuk"
+              />
+            </div>
+
+            {/* Detail */}
+            <div className="mt-4">
+              <label className="text-sm font-bold">Detail</label>
+              <textarea
+                value={detail}
+                onChange={(e) => setDetail(e.target.value)}
+                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30 min-h-[120px]"
+                placeholder="Contoh: Service CVT, ganti kampas rem..."
+              />
+            </div>
+
+            {/* Progress */}
+            <div className="mt-4">
+              <label className="text-sm font-bold">Progress (%)</label>
+              <input
+                type="number"
+                value={progress}
+                onChange={(e) =>
+                  setProgress(clampProgress(Number(e.target.value)))
+                }
+                min={0}
+                max={100}
+                className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+              />
+            </div>
+
+            {/* Foto URL */}
+            <div className="mt-6">
+              <p className="font-bold text-sm">📸 Foto (URL)</p>
+              <p className="text-xs opacity-60 mt-1">
+                Untuk sekarang pakai link foto dulu. Upload Firebase Storage kita
+                bikin setelah ini.
+              </p>
+
+              <div className="mt-4 grid grid-cols-1 gap-4">
+                <div>
+                  <label className="text-sm font-bold opacity-80">Before</label>
+                  <input
+                    value={photoBefore}
+                    onChange={(e) => setPhotoBefore(e.target.value)}
+                    className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-bold opacity-80">Process</label>
+                  <input
+                    value={photoProcess}
+                    onChange={(e) => setPhotoProcess(e.target.value)}
+                    className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-bold opacity-80">After</label>
+                  <input
+                    value={photoAfter}
+                    onChange={(e) => setPhotoAfter(e.target.value)}
+                    className="mt-2 w-full px-4 py-3 rounded-xl bg-zinc-950 border border-white/10 outline-none focus:border-white/30"
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-white text-black font-extrabold hover:opacity-90 disabled:opacity-60"
+              >
+                {saving ? 'Menyimpan...' : '💾 Simpan Update'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push('/admin/list')}
+                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold"
+              >
+                📋 Kembali ke List
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </main>
   );

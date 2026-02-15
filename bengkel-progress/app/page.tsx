@@ -288,7 +288,7 @@ export default function HomePage() {
 
       {/* FOOTER */}
       <footer className="border-t border-white/10 py-8 text-center text-sm text-white/50">
-        © {new Date().getFullYear()} Bagus Restoration — Sistem Progres Bengkel
+        © {new Date().getFullYear()} Raditya Bagus — Bagus Restoration
       </footer>
     </main>
   );

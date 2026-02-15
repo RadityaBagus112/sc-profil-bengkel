@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+
 import {
   collection,
   onSnapshot,
@@ -74,7 +75,6 @@ export default function AdminListPage() {
     return () => unsub();
   }, []);
 
-  // list status otomatis (biar dropdown ngikutin isi database)
   const statusOptions = useMemo(() => {
     const set = new Set<string>();
     motors.forEach((m) => {
