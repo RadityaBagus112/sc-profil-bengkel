@@ -71,7 +71,7 @@ export default function HomePage() {
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <a
-                  href="#progress"
+                  href="/progress"
                   className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
                 >
                   Lihat Progress

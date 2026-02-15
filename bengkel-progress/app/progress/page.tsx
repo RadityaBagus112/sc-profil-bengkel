@@ -80,21 +80,41 @@ export default function ProgressPage() {
     "all" | "menunggu" | "proses" | "selesai"
   >("all");
 
+  async function tryLoadFromCollections() {
+    const collectionCandidates = ["progress", "jobs", "servis"];
+
+    for (const colName of collectionCandidates) {
+      try {
+        const q = query(
+          collection(db, colName),
+          orderBy("updatedAt", "desc")
+        );
+
+        const snap = await getDocs(q);
+
+        if (!snap.empty) {
+          const list: ProgressDoc[] = snap.docs.map((d) => ({
+            id: d.id,
+            ...(d.data() as any),
+          }));
+
+          console.log("DATA DITEMUKAN DARI COLLECTION:", colName);
+          setItems(list);
+          return;
+        }
+      } catch (err) {
+        console.log("Gagal baca collection:", colName, err);
+      }
+    }
+
+    // kalau semua kosong
+    setItems([]);
+  }
+
   async function load() {
     try {
       setLoading(true);
-
-      // ⚠️ Pastikan nama collection sama dengan yang kamu pakai di admin/add
-      const q = query(collection(db, "progress"), orderBy("updatedAt", "desc"));
-
-      const snap = await getDocs(q);
-
-      const list: ProgressDoc[] = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as any),
-      }));
-
-      setItems(list);
+      await tryLoadFromCollections();
     } catch (err) {
       console.error("Load progress error:", err);
       setItems([]);
@@ -200,9 +220,7 @@ export default function ProgressPage() {
 
               <select
                 value={filterStatus}
-                onChange={(e) =>
-                  setFilterStatus(e.target.value as any)
-                }
+                onChange={(e) => setFilterStatus(e.target.value as any)}
                 className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
               >
                 <option value="all">Semua Status</option>
@@ -224,10 +242,14 @@ export default function ProgressPage() {
           {!loading && filtered.length === 0 && (
             <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-8">
               <p className="text-sm text-white/70">
-                Belum ada data progress yang bisa ditampilkan.
+                Data masih kosong / tidak ditemukan.
               </p>
               <p className="mt-2 text-xs text-white/50">
-                Jika kamu admin, silakan tambah data dari halaman admin.
+                Coba klik refresh, atau kemungkinan data kamu tersimpan di
+                collection lain.
+              </p>
+              <p className="mt-3 text-xs text-white/50">
+                (Buka DevTools → Console untuk lihat collection mana yang kebaca)
               </p>
             </div>
           )}
@@ -263,7 +285,6 @@ export default function ProgressPage() {
 
                   {it.photoUrl && (
                     <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={it.photoUrl}
                         alt="Foto progress"
@@ -282,18 +303,8 @@ export default function ProgressPage() {
               ))}
             </div>
           )}
-
-          {/* Footer info */}
-          <div className="mt-12 rounded-3xl border border-white/10 bg-gradient-to-r from-white/10 to-white/5 p-6">
-            <p className="text-sm font-semibold">Tips untuk customer</p>
-            <p className="mt-2 text-sm text-white/70 leading-relaxed">
-              Klik salah satu progress untuk melihat detail lengkap, foto bukti,
-              dan status terbaru.
-            </p>
-          </div>
         </div>
       </section>
     </main>
   );
 }
-    
